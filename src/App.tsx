@@ -162,7 +162,7 @@ export function App() {
     <div className="flex h-full flex-col bg-[radial-gradient(circle_at_50%_20%,#F7F9FC,#E3E8EF_70%)]">
       <header className="z-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-black/5 bg-white/70 px-4 py-2.5 backdrop-blur-md sm:px-6">
         <div className="mr-auto min-w-0 leading-tight">
-          <p className="truncate text-[14px] font-bold text-[#292C31]">iPhone Duo · Manage Landing</p>
+          <p className="flex items-center gap-2 truncate text-[14px] font-bold text-[#292C31]">iPhone Duo · Manage Landing<span className="rounded-full bg-[#FFF0B8] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8F4C00]">Design prototype</span></p>
           <p className="truncate text-[11px] text-[#696B6F]">
             {current.hint} · {w} × {h} pt
           </p>
