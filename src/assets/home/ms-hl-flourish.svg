@@ -1,0 +1,14 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<mask id="stroke0_0_483" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64" fill="black">
+<rect fill="white" width="64" height="64"/>
+<path d="M32 62C48.5685 62 62 48.5685 62 32C62 15.4315 48.5685 2 32 2C15.4315 2 2 15.4315 2 32C2 48.5685 15.4315 62 32 62Z" fill-rule="evenodd" clip-rule="evenodd"/>
+</mask>
+<path id="Flourish for toggle" d="M32 62C48.5685 62 62 48.5685 62 32C62 15.4315 48.5685 2 32 2C15.4315 2 2 15.4315 2 32C2 48.5685 15.4315 62 32 62Z" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="url(#paint0_linear_0_483)" mask="url(#stroke0_0_483)"/>
+<defs>
+<linearGradient id="paint0_linear_0_483" x1="32" y1="1.06743" x2="32.0001" y2="62" gradientUnits="userSpaceOnUse">
+<stop stop-color="#F9080F"/>
+<stop offset="0.432692" stop-color="#FFBE09"/>
+<stop offset="1" stop-color="#986FFB"/>
+</linearGradient>
+</defs>
+</svg>
