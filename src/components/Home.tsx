@@ -626,12 +626,26 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
   };
 
   // Toolbar items. Top of the vertical axis is reserved for primary navigation (Close / Back).
-  const toolbar = [
-    ...(detail && inner ? [{ label: "Close", icon: <X className="size-5" />, onClick: () => setDetail(null) }] : []),
-    { label: "Search", icon: <img src={home("nav-search.svg")} alt="" className="size-[26px]" />, onClick: () => setSearch(true) },
-    { label: "Scan QR", icon: <img src={home("nav-qr.png")} alt="" className="size-[22px] mix-blend-multiply" />, onClick: () => toast("Camera opens to scan a QR code"), tone: "pill" as const },
-    ...(mode === "outer" ? [{ label: "Menu", icon: <MenuIcon />, onClick: () => setMenu(true) }] : []),
-  ];
+  // Rail toolbar keeps only primary navigation (Close). Menu, Search and Scan QR sit on the top row (Top Nav ✅).
+  const toolbar = detail && inner ? [{ label: "Close", icon: <X className="size-5" />, onClick: () => setDetail(null) }] : [];
+  const topBar = (
+    <header className="flex h-[69px] shrink-0 items-center px-5">
+      <button aria-label="Open menu" onClick={() => setMenu(true)} className="rounded-full p-1 hover:bg-black/5">
+        <span className="flex size-8 items-center justify-center">
+          <MenuIcon />
+        </span>
+      </button>
+      <div className="flex-1" />
+      <button aria-label="Search" onClick={() => setSearch(true)} className="rounded-full p-1 hover:bg-black/5">
+        <span className="flex size-8 items-center justify-center">
+          <img src={home("nav-search.svg")} alt="" className="size-[26.67px]" />
+        </span>
+      </button>
+      <button aria-label="Scan QR" onClick={() => toast("Camera opens to scan a QR code")} className="ml-1 active:opacity-70">
+        <img src={home("nav-scanqr.png")} alt="" className="h-10 w-[100px] object-contain" />
+      </button>
+    </header>
+  );
 
   const manage = nav === "Manage";
   const primary = (
@@ -658,7 +672,8 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
   if (mode === "outer") {
     // Closed: compact width, single column, controls on the trailing rail.
     body = (
-      <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden pb-10 pt-[18px]" style={{ right: RAIL }}>
+      <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden pb-10 pt-[6px]" style={{ right: RAIL }}>
+        {topBar}
         {manage ? (
           <div className="flex flex-col gap-8">
             <CategoryTabs tab={tab} setTab={changeTab} />
@@ -677,11 +692,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
       <>
         {/* Leading pane (primary). Its own controls sit at the top of the pane, like Mail's list. */}
         <div className="no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden border-r border-[#E6E9EF] bg-white pb-10" style={{ width: lead }}>
-          <div className="flex items-center gap-2 px-4 pb-1 pt-[18px]">
-            <button aria-label="Open menu" onClick={() => setMenu(true)} className="flex size-11 items-center justify-center rounded-full border border-white bg-[linear-gradient(180deg,#FFFFFF,#F3F5F8)] shadow-[0_2px_8px_rgba(41,44,49,0.10)]">
-              <MenuIcon />
-            </button>
-          </div>
+          <div className="pt-[6px]">{topBar}</div>
           {manage ? (
             <div className="flex flex-col gap-8">
               <CategoryTabs tab={tab} setTab={changeTab} />
@@ -692,7 +703,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
           )}
         </div>
         {/* Trailing pane (secondary): Discover, or the detail of what was tapped. */}
-        <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 overflow-y-auto overflow-x-hidden bg-white pb-10 pt-[28px]" style={{ left: trailX, width: trailW }}>
+        <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 overflow-y-auto overflow-x-hidden bg-white pb-10 pt-[30px]" style={{ left: trailX, width: trailW }}>
           <div className="flex flex-col gap-8">{discover(3)}</div>
         </div>
       </>
@@ -701,22 +712,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
     // Inner display in portrait: horizontal bars, two even columns.
     body = (
       <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-0 overflow-y-auto overflow-x-hidden pb-[150px] pt-[44px]">
-        <header className="flex h-[69px] items-center px-5">
-          <button aria-label="Open menu" onClick={() => setMenu(true)} className="rounded-full p-1 hover:bg-black/5">
-            <span className="flex size-8 items-center justify-center">
-              <MenuIcon />
-            </span>
-          </button>
-          <div className="flex-1" />
-          <button aria-label="Search" onClick={() => setSearch(true)} className="rounded-full p-1 hover:bg-black/5">
-            <span className="flex size-8 items-center justify-center">
-              <img src={home("nav-search.svg")} alt="" className="size-[26.67px]" />
-            </span>
-          </button>
-          <button aria-label="Scan QR" onClick={() => toast("Camera opens to scan a QR code")} className="ml-1">
-            <img src={home("nav-scanqr.png")} alt="" className="h-10 w-[100px] object-contain" />
-          </button>
-        </header>
+        {topBar}
         {manage ? (
           <>
             <CategoryTabs tab={tab} setTab={changeTab} />
