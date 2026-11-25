@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Keyboard, Maximize2, ScanLine } from "lucide-react";
 import { Home, SIZES, type Mode } from "@/components/Home";
+import { FoldScene, FOLD_SCENE } from "@/components/FoldScene";
 import { cn } from "@/utils";
 
 /**
@@ -87,14 +88,58 @@ export function App() {
     return () => ro.disconnect();
   }, []);
 
-  const scale = zoom === "100" ? 1 : Math.min(1, (avail.w - 40) / devW, (avail.h - 40) / devH);
+  const fit = (dw: number, dh: number) => (zoom === "100" ? 1 : Math.min(1, (avail.w - 40) / dw, (avail.h - 40) / dh));
+  const scale = fit(devW, devH);
+  const sClosed = fit(SIZES.outer.w + BEZEL * 2, SIZES.outer.h + BEZEL * 2);
+  const sOpen = fit(FOLD_SCENE.w, FOLD_SCENE.h);
+
+  // Fold transition (closed ⇄ open/book): p = 0 closed … 1 open, cosine-eased like the real hinge.
+  const [fold, setFold] = useState<number | null>(() => {
+    const f = new URLSearchParams(location.search).get("fold"); // ?fold=0.4 freezes the hinge (for review)
+    return f === null ? null : Number(f);
+  });
+  const raf = useRef(0);
+  const foldTo = (from: number, to: number, end: Mode) => {
+    cancelAnimationFrame(raf.current);
+    const dur = 1150 * Math.abs(to - from) + 200;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - t0) / dur);
+      const e = (1 - Math.cos(Math.PI * t)) / 2;
+      setFold(from + (to - from) * e);
+      if (t < 1) raf.current = requestAnimationFrame(tick);
+      else {
+        setPose(end);
+        setMode(end);
+        setFold(null);
+      }
+    };
+    raf.current = requestAnimationFrame(tick);
+  };
 
   const go = (p: Mode) => {
-    if (p === pose) return;
+    if (p === pose || fold !== null) return;
+    const isInner = (m: Mode) => m === "open" || m === "book";
+    if ((pose === "outer" && isInner(p)) || (isInner(pose) && p === "outer")) {
+      if (pose === "outer") foldTo(0, 1, p);
+      else foldTo(1, 0, "outer");
+      return;
+    }
     setFading(true);
     setPose(p);
     setTimeout(() => setMode(p), 200);
     setTimeout(() => setFading(false), 380);
+  };
+
+  // Scrub the hinge by hand; releasing snaps to the nearer pose.
+  const scrub = (v: number) => {
+    cancelAnimationFrame(raf.current);
+    setFold(v);
+  };
+  const release = () => {
+    if (fold === null) return;
+    if (fold >= 0.5) foldTo(fold, 1, pose === "book" ? "book" : "open");
+    else foldTo(fold, 0, "outer");
   };
 
   useEffect(() => {
@@ -135,6 +180,24 @@ export function App() {
           ))}
         </div>
 
+        <label className="flex items-center gap-2 text-[12px] font-semibold text-[#3E4146]" title="Drag to open or close the hinge">
+          <span className="hidden lg:inline">Hinge</span>
+          <input
+            type="range"
+            min={0}
+            max={180}
+            step={1}
+            aria-label="Hinge angle"
+            value={Math.round((fold ?? (pose === "outer" ? 0 : pose === "portrait" ? 1 : 1)) * 180)}
+            disabled={pose === "portrait"}
+            onChange={(e) => scrub(Number(e.target.value) / 180)}
+            onPointerUp={release}
+            onKeyUp={release}
+            className="w-24 accent-[#292C31] disabled:opacity-30"
+          />
+          <span className="w-8 tabular-nums text-[#696B6F]">{Math.round((fold ?? (pose === "outer" ? 0 : 1)) * 180)}°</span>
+        </label>
+
         <div className="flex items-center gap-1.5">
           <ToolButton active={regions} onClick={() => setRegions((r) => !r)} title="Show reserved regions and control areas (G)">
             <ScanLine className="size-4" /> <span className="hidden md:inline">Regions</span>
@@ -155,6 +218,16 @@ export function App() {
 
       <div ref={stage} className={cn("relative min-h-0 flex-1", zoom === "100" ? "overflow-auto" : "overflow-hidden")}>
         <div className="flex min-h-full min-w-full items-center justify-center p-5" style={zoom === "100" ? { width: devW + 80, height: devH + 80, minWidth: "100%" } : undefined}>
+          {fold !== null ? (
+            <div className="relative shrink-0" style={{ width: FOLD_SCENE.w * (sClosed + (sOpen - sClosed) * fold), height: FOLD_SCENE.h * (sClosed + (sOpen - sClosed) * fold) }}>
+              <div
+                className="absolute left-0 top-0 origin-top-left"
+                style={{ transform: `translateX(${-(FOLD_SCENE.half / 2) * (1 - fold) * (sClosed + (sOpen - sClosed) * fold)}px) scale(${sClosed + (sOpen - sClosed) * fold})` }}
+              >
+                <FoldScene p={fold} body={finish.body} edge={finish.edge} />
+              </div>
+            </div>
+          ) : (
           <motion.div className="relative shrink-0" initial={false} animate={{ width: devW * scale, height: devH * scale }} transition={{ type: "spring", stiffness: 170, damping: 24 }}>
             <motion.div className="absolute left-0 top-0 origin-top-left" initial={false} animate={{ width: devW, height: devH, scale }} transition={{ type: "spring", stiffness: 170, damping: 24 }}>
               <Device finish={finish} pose={pose}>
@@ -166,6 +239,7 @@ export function App() {
               </Device>
             </motion.div>
           </motion.div>
+          )}
         </div>
 
         <AnimatePresence>
@@ -175,9 +249,10 @@ export function App() {
               <ul className="list-disc space-y-1.5 pl-4">
                 <li><b>Vertical controls.</b> When the device is closed, and on the inner display in landscape, the status bar, toolbar and tab bar sit on the trailing edge, below the camera. In portrait on the inner display, the bars return to the top and bottom.</li>
                 <li><b>Toolbar order.</b> Primary navigation goes at the top: Close appears first when a detail is open. Actions come next and the tab bar sits at the bottom.</li>
-                <li><b>Extra hierarchy on the inner display.</b> The leading pane shows your account and the trailing pane shows Discover. Tapping something opens its detail in the trailing pane.</li>
+                <li><b>Extra hierarchy on the inner display.</b> The panes split at the hinge. The leading half shows your account and the trailing half shows Discover. Tapping something opens its detail in the trailing half.</li>
                 <li><b>Adapting to the fold.</b> In Book, both panes become equal, the folding region stays clear, and messages appear inside one pane.</li>
-                <li><b>Built to resize.</b> Sections use fluid widths. The product grid uses 4 columns, an even number, on the wide pane.</li>
+                <li><b>Built to resize.</b> Sections use fluid widths, so the same components fill every pose.</li>
+                <li><b>Open and close.</b> Only the cover half swings around the hinge. The content stays fixed in place while the moving edge reveals it. The display turning away blurs and darkens at its far edge, and the motion is cosine-eased. Drag the Hinge slider to scrub it.</li>
                 <li><b>Continuity.</b> The recharge state, the open detail, the selected tab and your scroll position all carry across poses.</li>
               </ul>
               <p className="mb-1 mt-3 text-[13px] font-bold text-[#292C31]">Shortcuts</p>

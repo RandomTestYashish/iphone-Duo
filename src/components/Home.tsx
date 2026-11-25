@@ -1,11 +1,12 @@
 import * as React from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Search, ScanLine, X } from "lucide-react";
+import { X } from "lucide-react";
 import { home } from "@/assets/home";
 import { cn } from "@/utils";
 import { Arrow, CARD, ClipTag, SectionTitle, StatusBar, useDragScroll } from "./ui";
 import { Detail, DetailPanel, Drawer, SearchOverlay, Toast, type DetailSpec } from "./Overlays";
+import { store, useStore, type Pack } from "@/store";
 
 /**
  * "Manage Landing" on iPhone Duo, following Apple's HIG "Designing for iPhone Duo":
@@ -23,7 +24,7 @@ import { Detail, DetailPanel, Drawer, SearchOverlay, Toast, type DetailSpec } fr
 
 export type Mode = "outer" | "open" | "book" | "portrait";
 export type Ctx = { open: (d: DetailSpec) => void; toast: (t: string) => void; pack: Pack | null };
-export type Pack = { price: number; days: number; data: string; till: string };
+export type { Pack };
 
 /** Estimated from the HIG diagrams — Apple publishes the poses, not point sizes. */
 export const SIZES: Record<Mode, { w: number; h: number }> = {
@@ -521,7 +522,7 @@ function BottomNav({ nav, setNav, hidden }: { nav: string; setNav: (n: string) =
  * Vertical controls on the trailing edge (HIG "Vertical controls"), top to bottom:
  * Dynamic Island / camera · status bar · toolbar (primary navigation first) · tab bar.
  */
-function Rail({ nav, setNav, toolbar }: { nav: string; setNav: (n: string) => void; toolbar: { label: string; icon: React.ReactNode; onClick: () => void }[] }) {
+function Rail({ nav, setNav, toolbar }: { nav: string; setNav: (n: string) => void; toolbar: { label: string; icon: React.ReactNode; onClick: () => void; tone?: "pill" }[] }) {
   return (
     <aside className="absolute inset-y-0 right-0 z-30 flex w-[64px] flex-col items-center pb-5 pt-[64px]">
       {/* status bar, vertical */}
@@ -535,7 +536,7 @@ function Rail({ nav, setNav, toolbar }: { nav: string; setNav: (n: string) => vo
       {/* toolbar */}
       <div className="mt-4 flex flex-col gap-2">
         {toolbar.map((t) => (
-          <button key={t.label} title={t.label} aria-label={t.label} onClick={t.onClick} className="flex size-11 items-center justify-center rounded-full border border-white bg-[linear-gradient(180deg,#FFFFFF,#F3F5F8)] text-[#292C31] shadow-[0_2px_8px_rgba(41,44,49,0.10)] hover:bg-[#F0F4F9] active:scale-95">
+          <button key={t.label} title={t.label} aria-label={t.label} onClick={t.onClick} className={cn("flex size-11 items-center justify-center rounded-full text-[#292C31] active:scale-95", t.tone === "pill" ? "border border-[#E6E9EF] bg-[#F0F4F9]" : "border border-white bg-[linear-gradient(180deg,#FFFFFF,#F3F5F8)] shadow-[0_2px_8px_rgba(41,44,49,0.10)] hover:bg-[#F0F4F9]")}>
             {t.icon}
           </button>
         ))}
@@ -579,18 +580,21 @@ function OtherTab({ name, back }: { name: string; back: () => void }) {
 
 /* ---------------- Screen ---------------- */
 
-export function Home({ mode, showRegions }: { mode: Mode; showRegions: boolean }) {
-  const [tab, setTab] = useState("All");
-  const [nav, setNav] = useState("Manage");
-  const [detail, setDetail] = useState<DetailSpec | null>(null);
+export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: boolean; ghost?: boolean }) {
+  const tab = useStore((s) => s.tab);
+  const nav = useStore((s) => s.nav);
+  const detail = useStore((s) => s.detail);
+  const pack = useStore((s) => s.pack);
+  const setTab = (t: string) => store.set({ tab: t });
+  const setNav = (n: string) => store.set({ nav: n });
+  const setDetail = (d: DetailSpec | null) => store.set({ detail: d });
+  const setPack = (p: Pack) => store.set({ pack: p });
   const [menu, setMenu] = useState(false);
   const [search, setSearch] = useState(false);
   const [toastMsg, setToast] = useState<{ id: number; t: string } | null>(null);
-  const [pack, setPack] = useState<Pack | null>(null);
   const [navHidden, setNavHidden] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const lastY = useRef(0);
-  const ratio = useRef(0);
 
   const toast = (t: string) => setToast({ id: Date.now(), t });
   const ctx: Ctx = { open: setDetail, toast, pack };
@@ -598,19 +602,19 @@ export function Home({ mode, showRegions }: { mode: Mode; showRegions: boolean }
   const { w } = SIZES[mode];
   // Pane geometry on the inner display (landscape). Fully open: narrower leading pane.
   // Partially folded: both panes match the two halves and avoid the folding region.
-  const lead = mode === "book" ? w / 2 - FOLD / 2 : 375;
-  const trailX = mode === "book" ? w / 2 + FOLD / 2 : 376;
+  const lead = mode === "book" ? w / 2 - FOLD / 2 : w / 2;
+  const trailX = mode === "book" ? w / 2 + FOLD / 2 : w / 2 + 1;
   const trailW = w - RAIL - trailX;
 
   useLayoutEffect(() => {
     const el = scroller.current;
-    if (el) el.scrollTop = ratio.current * (el.scrollHeight - el.clientHeight);
+    if (el) el.scrollTop = store.get().ratio * (el.scrollHeight - el.clientHeight);
   }, [mode]);
 
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const y = el.scrollTop;
-    ratio.current = y / Math.max(1, el.scrollHeight - el.clientHeight);
+    if (!ghost) store.setRatio(y / Math.max(1, el.scrollHeight - el.clientHeight));
     if (Math.abs(y - lastY.current) > 8) {
       setNavHidden(y > lastY.current && y > 120);
       lastY.current = y;
@@ -624,8 +628,8 @@ export function Home({ mode, showRegions }: { mode: Mode; showRegions: boolean }
   // Toolbar items. Top of the vertical axis is reserved for primary navigation (Close / Back).
   const toolbar = [
     ...(detail && inner ? [{ label: "Close", icon: <X className="size-5" />, onClick: () => setDetail(null) }] : []),
-    { label: "Search", icon: <Search className="size-5" strokeWidth={1.8} />, onClick: () => setSearch(true) },
-    { label: "Scan QR", icon: <ScanLine className="size-5" strokeWidth={1.8} />, onClick: () => toast("Camera opens to scan a QR code") },
+    { label: "Search", icon: <img src={home("nav-search.svg")} alt="" className="size-[26px]" />, onClick: () => setSearch(true) },
+    { label: "Scan QR", icon: <img src={home("nav-qr.png")} alt="" className="size-[22px] mix-blend-multiply" />, onClick: () => toast("Camera opens to scan a QR code"), tone: "pill" as const },
     ...(mode === "outer" ? [{ label: "Menu", icon: <MenuIcon />, onClick: () => setMenu(true) }] : []),
   ];
 
@@ -693,7 +697,7 @@ export function Home({ mode, showRegions }: { mode: Mode; showRegions: boolean }
         <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 overflow-y-auto overflow-x-hidden bg-white pb-10 pt-[18px]" style={{ left: trailX, width: trailW }}>
           <div className="h-11" />
           <h2 className="px-4 pb-4 pt-2 text-[28px] font-bold leading-[34px] tracking-[-0.4px] text-[#292C31]">Discover</h2>
-          <div className="flex flex-col gap-8">{discover(mode === "book" ? 3 : 4)}</div>
+          <div className="flex flex-col gap-8">{discover(3)}</div>
         </div>
       </>
     );
@@ -750,7 +754,7 @@ export function Home({ mode, showRegions }: { mode: Mode; showRegions: boolean }
   }
 
   return (
-    <div data-screen className="relative h-full w-full overflow-hidden bg-white">
+    <div data-screen className={cn("relative h-full w-full overflow-hidden bg-white", ghost && "pointer-events-none")} {...(ghost ? { inert: "" } : {})}>
       {body}
 
       {mode === "portrait" ? (
@@ -806,7 +810,7 @@ function Regions({ mode }: { mode: Mode }) {
       )}
       {mode === "open" && (
         <div className="absolute inset-y-0 border-x border-dashed border-[#A0A2A4]" style={{ left: w / 2 - 13, width: 26 }}>
-          <span className={cn(tag, "left-1/2 top-1/2 -translate-x-1/2 whitespace-nowrap bg-[#696B6F]")}>Hinge (flat — usable)</span>
+          <span className={cn(tag, "left-1/2 top-1/2 -translate-x-1/2 whitespace-nowrap bg-[#696B6F]")}>Hinge · pane split</span>
         </div>
       )}
       {mode === "book" && (
@@ -817,7 +821,7 @@ function Regions({ mode }: { mode: Mode }) {
       {(mode === "open" || mode === "book") && (
         <>
           <span className={cn(tag, "left-3 top-[6px]")}>Leading pane · primary</span>
-          <span className={cn(tag, "top-[6px]")} style={{ left: (mode === "book" ? w / 2 + FOLD / 2 : 376) + 12 }}>
+          <span className={cn(tag, "top-[6px]")} style={{ left: (mode === "book" ? w / 2 + FOLD / 2 : w / 2) + 12 }}>
             Trailing pane · secondary
           </span>
         </>

@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, ChevronRight, Loader2, Search, X } from "lucide-react";
 import { home } from "@/assets/home";
 import { cn } from "@/utils";
-import type { Pack } from "./Home";
+import type { Pack } from "@/store";
 
 export type DetailSpec =
   | { kind: "info"; title: string; body: string; img?: string; cta: string }
