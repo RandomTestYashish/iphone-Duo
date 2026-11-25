@@ -14,34 +14,27 @@ export type DetailSpec =
  * Folded: a bottom sheet over the whole screen.
  * Unfolded: the detail opens in the right pane (list–detail), so the left pane stays usable.
  */
-export function DetailPanel({ open, wide, onClose, children }: { open: boolean; wide: boolean; onClose: () => void; children: React.ReactNode }) {
+export function DetailPanel({ open, pane, onClose, children }: { open: boolean; pane: { left: number; width: number } | null; onClose: () => void; children: React.ReactNode }) {
   return (
     <AnimatePresence>
-      {open && (
-        <>
-          <motion.button
-            key="scrim"
-            aria-label="Close"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className={cn("absolute z-40 bg-black/40", wide ? "inset-y-0 left-0 w-[385px] bg-black/10" : "inset-0")}
-          />
-          {wide ? (
+      {open &&
+        (pane ? (
+          // Inner display: the detail replaces the trailing pane (list–detail); the leading pane stays live.
+          <motion.div
+            key="pane"
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 40 }}
+            transition={{ type: "spring", stiffness: 380, damping: 38 }}
+            className="absolute inset-y-0 z-[36] flex flex-col bg-white pt-[18px]"
+            style={{ left: pane.left, width: pane.width }}
+          >
+            {children}
+          </motion.div>
+        ) : (
+          <React.Fragment key="sheet">
+            <motion.button aria-label="Close" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-40 bg-black/40" />
             <motion.div
-              key="pane"
-              initial={{ x: 385 }}
-              animate={{ x: 0 }}
-              exit={{ x: 385 }}
-              transition={{ type: "spring", stiffness: 360, damping: 38 }}
-              className="absolute inset-y-0 right-0 z-50 flex w-[375px] flex-col bg-white pt-[44px] shadow-[-12px_0_32px_rgba(0,0,0,0.10)]"
-            >
-              {children}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="sheet"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
@@ -50,14 +43,13 @@ export function DetailPanel({ open, wide, onClose, children }: { open: boolean; 
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={{ top: 0, bottom: 0.6 }}
               onDragEnd={(_, i) => (i.offset.y > 120 || i.velocity.y > 600) && onClose()}
-              className="absolute inset-x-0 bottom-0 z-50 flex max-h-[86%] flex-col rounded-t-[24px] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.12)]"
+              className="absolute inset-x-0 bottom-0 z-50 flex max-h-[88%] flex-col rounded-t-[24px] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.12)]"
             >
               <span className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[#CDD3DD]" />
               {children}
             </motion.div>
-          )}
-        </>
-      )}
+          </React.Fragment>
+        ))}
     </AnimatePresence>
   );
 }
@@ -79,14 +71,16 @@ function till(days: number) {
   return `${d.getDate()} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getMonth()]}`;
 }
 
-export function Detail({ spec, onClose, onRecharged, toast }: { spec: DetailSpec; onClose: () => void; onRecharged: (p: Pack) => void; toast: (t: string) => void }) {
+export function Detail({ spec, onClose, onRecharged, toast, hideClose }: { spec: DetailSpec; onClose: () => void; onRecharged: (p: Pack) => void; toast: (t: string) => void; hideClose?: boolean }) {
   return (
     <>
       <div className="flex shrink-0 items-center gap-3 px-5 pb-3 pt-4">
         <p className="flex-1 text-[18px] font-bold leading-6 text-[#292C31]">{spec.kind === "info" ? spec.title : spec.tab === "others" ? "Recharge for others" : "Recharge"}</p>
-        <button aria-label="Close" onClick={onClose} className="flex size-8 items-center justify-center rounded-full bg-[#F0F4F9] hover:bg-[#E6E9EF]">
-          <X className="size-4" />
-        </button>
+        {!hideClose && (
+          <button aria-label="Close" onClick={onClose} className="flex size-8 items-center justify-center rounded-full bg-[#F0F4F9] hover:bg-[#E6E9EF]">
+            <X className="size-4" />
+          </button>
+        )}
       </div>
       {spec.kind === "info" ? (
         <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pb-8">
@@ -332,7 +326,7 @@ export function SearchOverlay({ open, onClose, onPick }: { open: boolean; onClos
 
 /* ---------------- Toast ---------------- */
 
-export function Toast({ msg, onDone }: { msg: { id: number; t: string } | null; onDone: () => void }) {
+export function Toast({ msg, onDone, area, bottom }: { msg: { id: number; t: string } | null; onDone: () => void; area: { left: number; width: number } | null; bottom: number }) {
   const done = useRef(onDone);
   done.current = onDone;
   useEffect(() => {
@@ -341,7 +335,7 @@ export function Toast({ msg, onDone }: { msg: { id: number; t: string } | null; 
     return () => clearTimeout(t);
   }, [msg]);
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-[104px] z-[60] flex justify-center px-4">
+    <div className="pointer-events-none absolute z-[60] flex justify-center px-4" style={{ bottom, left: area ? area.left : 0, width: area ? area.width : "100%" }}>
       <AnimatePresence>
         {msg && (
           <motion.div key={msg.id} initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8 }} className="max-w-[340px] rounded-[12px] bg-[#292C31] px-4 py-3 text-center text-[13px] font-medium text-white shadow-lg">

@@ -9,7 +9,7 @@ export const CARD = "border border-[#E6E9EF] bg-[linear-gradient(180deg,#FFFFFF,
 /** Section Title ✅ — Inter Bold 11/12, tracking 1.76px, uppercase, #3E4146. */
 export function SectionTitle({ children, action, tracking = 1.76, className }: { children: React.ReactNode; action?: React.ReactNode; tracking?: number; className?: string }) {
   return (
-    <div className={cn("flex w-[343px] items-start gap-2", className)}>
+    <div className={cn("flex w-full items-start gap-2", className)}>
       <p className="flex-1 text-[11px] font-bold uppercase leading-[12px] text-[#3E4146]" style={{ letterSpacing: tracking }}>
         {children}
       </p>

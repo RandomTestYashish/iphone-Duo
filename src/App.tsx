@@ -1,17 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Columns2, Keyboard, Maximize2, RectangleVertical, ScanLine, Smartphone } from "lucide-react";
-import { Home } from "@/components/Home";
+import { Keyboard, Maximize2, ScanLine } from "lucide-react";
+import { Home, SIZES, type Mode } from "@/components/Home";
 import { cn } from "@/utils";
 
 /**
- * iPhone Duo preview: a book-style foldable.
- *   Folded  → 375 × 812 cover screen (Figma 81735:10718)
- *   Unfolded → 760 × 812 inner screen, two 375 panes around a 10 px hinge (Figma 81737:1054)
+ * iPhone Duo preview, following Apple's HIG "Designing for iPhone Duo".
+ * Four poses: closed (outer display), open flat and partially folded (inner display, landscape),
+ * and the inner display in portrait. Point sizes are estimates from the HIG diagrams.
  */
 
-const SCREEN_H = 812;
-const BEZEL = 12;
+const BEZEL = 10;
 const FINISHES = [
   { id: "titanium", label: "Natural Titanium", body: "linear-gradient(145deg,#d9d6d0,#b9b5ad 45%,#e4e1db)", edge: "#a7a39b" },
   { id: "black", label: "Black Titanium", body: "linear-gradient(145deg,#4a4a4d,#2a2a2d 45%,#545457)", edge: "#1f1f21" },
@@ -19,22 +18,66 @@ const FINISHES = [
   { id: "blue", label: "Ice Blue", body: "linear-gradient(145deg,#cfdbe8,#a9bccf 45%,#dde6ef)", edge: "#8ea2b7" },
 ];
 
-type Posture = "folded" | "unfolded";
+const POSES: { id: Mode; label: string; hint: string; icon: JSX.Element }[] = [
+  {
+    id: "outer",
+    label: "Closed",
+    hint: "Outer display · compact width · controls on the side",
+    icon: (
+      <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <path d="M4 3h9a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H4Z" />
+        <circle cx="13" cy="6" r="0.9" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  {
+    id: "open",
+    label: "Open",
+    hint: "Inner display · regular width · split view",
+    icon: (
+      <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <rect x="2" y="4.5" width="16" height="11" rx="2.5" />
+      </svg>
+    ),
+  },
+  {
+    id: "book",
+    label: "Book",
+    hint: "Inner display partially folded · equal panes clear of the fold",
+    icon: (
+      <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+        <path d="M2.5 4.5 10 6l7.5-1.5v10L10 16l-7.5-1.5Z" />
+        <path d="M10 6v10" />
+      </svg>
+    ),
+  },
+  {
+    id: "portrait",
+    label: "Portrait",
+    hint: "Inner display in portrait · horizontal bars",
+    icon: (
+      <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <rect x="4.5" y="2" width="11" height="16" rx="2.5" />
+      </svg>
+    ),
+  },
+];
 
 export function App() {
-  const [posture, setPosture] = useState<Posture>(() => (new URLSearchParams(location.search).get("posture") === "folded" ? "folded" : "unfolded"));
-  const [wide, setWide] = useState(posture === "unfolded");
+  const initial = (new URLSearchParams(location.search).get("pose") as Mode) || "open";
+  const [pose, setPose] = useState<Mode>(SIZES[initial] ? initial : "open");
+  const [mode, setMode] = useState<Mode>(pose);
   const [fading, setFading] = useState(false);
-  const [hinge, setHinge] = useState(false);
+  const [regions, setRegions] = useState(false);
   const [zoom, setZoom] = useState<"fit" | "100">("fit");
   const [finish, setFinish] = useState(FINISHES[0]);
   const [help, setHelp] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
   const [avail, setAvail] = useState({ w: 1200, h: 900 });
 
-  const screenW = posture === "unfolded" ? 760 : 375;
-  const devW = screenW + BEZEL * 2;
-  const devH = SCREEN_H + BEZEL * 2;
+  const { w, h } = SIZES[pose];
+  const devW = w + BEZEL * 2;
+  const devH = h + BEZEL * 2;
 
   useLayoutEffect(() => {
     const el = stage.current;
@@ -44,111 +87,104 @@ export function App() {
     return () => ro.disconnect();
   }, []);
 
-  // Fit the unfolded width so the device doesn't jump in scale when it folds.
-  const scale = zoom === "100" ? 1 : Math.min(1, (avail.w - 32) / (760 + BEZEL * 2 + 8), (avail.h - 32) / (devH + 8));
+  const scale = zoom === "100" ? 1 : Math.min(1, (avail.w - 40) / devW, (avail.h - 40) / devH);
 
-  const fold = (p: Posture) => {
-    if (p === posture) return;
+  const go = (p: Mode) => {
+    if (p === pose) return;
     setFading(true);
-    setPosture(p);
-    // Swap the layout part-way through the hinge animation, like the OS does on a real foldable.
-    setTimeout(() => setWide(p === "unfolded"), 200);
+    setPose(p);
+    setTimeout(() => setMode(p), 200);
     setTimeout(() => setFading(false), 380);
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).closest("input,textarea")) return;
-      if (e.key === "f" || e.key === "F") fold(posture === "unfolded" ? "folded" : "unfolded");
-      if (e.key === "g" || e.key === "G") setHinge((h) => !h);
+      const i = ["1", "2", "3", "4"].indexOf(e.key);
+      if (i >= 0) go(POSES[i].id);
+      if (e.key === "f" || e.key === "F") go(pose === "outer" ? "open" : "outer");
+      if (e.key === "g" || e.key === "G") setRegions((r) => !r);
       if (e.key === "0") setZoom((z) => (z === "fit" ? "100" : "fit"));
-      if (e.key === "?") setHelp((h) => !h);
+      if (e.key === "?") setHelp((x) => !x);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  const current = POSES.find((p) => p.id === pose)!;
+
   return (
     <div className="flex h-full flex-col bg-[radial-gradient(circle_at_50%_20%,#F7F9FC,#E3E8EF_70%)]">
-      {/* Viewer toolbar */}
       <header className="z-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-black/5 bg-white/70 px-4 py-2.5 backdrop-blur-md sm:px-6">
-        <div className="mr-auto flex min-w-0 items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-[10px] bg-[#292C31] text-white">
-            <Columns2 className="size-4" />
-          </span>
-          <div className="min-w-0 leading-tight">
-            <p className="truncate text-[14px] font-bold text-[#292C31]">iPhone Duo · Manage Landing</p>
-            <p className="truncate text-[11px] text-[#696B6F]">{posture === "unfolded" ? "Unfolded · 760 × 812 · two panes" : "Folded · 375 × 812 · cover screen"}</p>
-          </div>
+        <div className="mr-auto min-w-0 leading-tight">
+          <p className="truncate text-[14px] font-bold text-[#292C31]">iPhone Duo · Manage Landing</p>
+          <p className="truncate text-[11px] text-[#696B6F]">
+            {current.hint} · {w} × {h} pt
+          </p>
         </div>
 
-        <div role="radiogroup" aria-label="Posture" className="relative flex rounded-[12px] bg-[#E6E9EF] p-1">
-          {(["folded", "unfolded"] as Posture[]).map((p) => (
-            <button key={p} role="radio" aria-checked={posture === p} onClick={() => fold(p)} className={cn("relative flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[13px] font-semibold capitalize transition-colors", posture === p ? "text-[#292C31]" : "text-[#696B6F] hover:text-[#292C31]")}>
-              {posture === p && <motion.span layoutId="posture" className="absolute inset-0 rounded-[9px] bg-white shadow-sm" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
+        <div role="radiogroup" aria-label="Device pose" className="flex rounded-[12px] bg-[#E6E9EF] p-1">
+          {POSES.map((p, i) => (
+            <button key={p.id} role="radio" aria-checked={pose === p.id} title={`${p.hint} (${i + 1})`} onClick={() => go(p.id)} className={cn("relative flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 text-[13px] font-semibold transition-colors", pose === p.id ? "text-[#292C31]" : "text-[#696B6F] hover:text-[#292C31]")}>
+              {pose === p.id && <motion.span layoutId="pose" className="absolute inset-0 rounded-[9px] bg-white shadow-sm" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
               <span className="relative flex items-center gap-1.5">
-                {p === "folded" ? <RectangleVertical className="size-4" /> : <Smartphone className="size-4 rotate-90" />}
-                {p}
+                {p.icon}
+                <span className="hidden sm:inline">{p.label}</span>
               </span>
             </button>
           ))}
         </div>
 
         <div className="flex items-center gap-1.5">
-          <ToolButton active={hinge} onClick={() => setHinge((h) => !h)} title="Show the hinge safe zone (G)">
-            <ScanLine className="size-4" /> Hinge
+          <ToolButton active={regions} onClick={() => setRegions((r) => !r)} title="Show reserved regions and control areas (G)">
+            <ScanLine className="size-4" /> <span className="hidden md:inline">Regions</span>
           </ToolButton>
           <ToolButton active={zoom === "100"} onClick={() => setZoom((z) => (z === "fit" ? "100" : "fit"))} title="Toggle fit / 100% (0)">
             <Maximize2 className="size-4" /> {zoom === "fit" ? `${Math.round(scale * 100)}%` : "100%"}
           </ToolButton>
-          <div className="ml-1 flex items-center gap-1.5" aria-label="Device finish">
+          <div className="ml-1 hidden items-center gap-1.5 sm:flex" aria-label="Device finish">
             {FINISHES.map((f) => (
               <button key={f.id} title={f.label} aria-label={f.label} onClick={() => setFinish(f)} className={cn("size-5 rounded-full border border-black/10 transition-transform hover:scale-110", finish.id === f.id && "ring-2 ring-[#075EE8] ring-offset-2")} style={{ background: f.body }} />
             ))}
           </div>
-          <ToolButton active={help} onClick={() => setHelp((h) => !h)} title="Shortcuts & interactions (?)" className="hidden sm:flex">
+          <ToolButton active={help} onClick={() => setHelp((x) => !x)} title="How this follows the HIG (?)">
             <Keyboard className="size-4" />
           </ToolButton>
         </div>
       </header>
 
-      {/* Stage */}
       <div ref={stage} className={cn("relative min-h-0 flex-1", zoom === "100" ? "overflow-auto" : "overflow-hidden")}>
-        <div className="flex min-h-full min-w-full items-center justify-center p-4" style={zoom === "100" ? { width: devW + 64, height: devH + 64, minWidth: "100%" } : undefined}>
-          <div style={{ width: devW * scale, height: devH * scale }} className="relative shrink-0 transition-[width] duration-500">
-            <motion.div
-              className="absolute left-0 top-0 origin-top-left"
-              style={{ scale, height: devH }}
-              initial={false}
-              animate={{ width: devW }}
-              transition={{ type: "spring", stiffness: 170, damping: 24 }}
-            >
-              <Device finish={finish} posture={posture}>
+        <div className="flex min-h-full min-w-full items-center justify-center p-5" style={zoom === "100" ? { width: devW + 80, height: devH + 80, minWidth: "100%" } : undefined}>
+          <motion.div className="relative shrink-0" initial={false} animate={{ width: devW * scale, height: devH * scale }} transition={{ type: "spring", stiffness: 170, damping: 24 }}>
+            <motion.div className="absolute left-0 top-0 origin-top-left" initial={false} animate={{ width: devW, height: devH, scale }} transition={{ type: "spring", stiffness: 170, damping: 24 }}>
+              <Device finish={finish} pose={pose}>
                 <motion.div className="h-full w-full" animate={{ opacity: fading ? 0 : 1, filter: fading ? "blur(6px)" : "blur(0px)" }} transition={{ duration: 0.18 }}>
-                  <div style={{ width: wide ? 760 : 375 }} className="h-full">
-                    <Home wide={wide} showHinge={hinge} />
+                  <div style={{ width: SIZES[mode].w, height: SIZES[mode].h }}>
+                    <Home mode={mode} showRegions={regions} />
                   </div>
                 </motion.div>
               </Device>
             </motion.div>
-          </div>
+          </motion.div>
         </div>
 
         <AnimatePresence>
           {help && (
-            <motion.aside initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className="absolute right-4 top-4 z-20 w-[280px] rounded-[16px] border border-black/5 bg-white/95 p-4 text-[12px] leading-[18px] text-[#3E4146] shadow-xl backdrop-blur">
-              <p className="mb-2 text-[13px] font-bold text-[#292C31]">Try it</p>
-              <ul className="list-disc space-y-1 pl-4">
-                <li>Fold / unfold. Your scroll position is kept.</li>
-                <li>Recharge Now → pick a pack → Pay. The status card turns green.</li>
-                <li>Unfolded, details open in the right pane. Folded, they open as a bottom sheet you can drag down.</li>
-                <li>Swipe or drag the carousels. Tap a side card in Featuring Fresh.</li>
-                <li>Menu, Search, category tabs, bottom nav, bank balance and Claim cards.</li>
+            <motion.aside initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className="no-scrollbar absolute bottom-4 right-4 top-4 z-20 w-[300px] overflow-y-auto rounded-[16px] border border-black/5 bg-white/95 p-4 text-[12px] leading-[18px] text-[#3E4146] shadow-xl backdrop-blur">
+              <p className="mb-2 text-[13px] font-bold text-[#292C31]">How this follows the HIG</p>
+              <ul className="list-disc space-y-1.5 pl-4">
+                <li><b>Vertical controls.</b> When the device is closed, and on the inner display in landscape, the status bar, toolbar and tab bar sit on the trailing edge, below the camera. In portrait on the inner display, the bars return to the top and bottom.</li>
+                <li><b>Toolbar order.</b> Primary navigation goes at the top: Close appears first when a detail is open. Actions come next and the tab bar sits at the bottom.</li>
+                <li><b>Extra hierarchy on the inner display.</b> The leading pane shows your account and the trailing pane shows Discover. Tapping something opens its detail in the trailing pane.</li>
+                <li><b>Adapting to the fold.</b> In Book, both panes become equal, the folding region stays clear, and messages appear inside one pane.</li>
+                <li><b>Built to resize.</b> Sections use fluid widths. The product grid uses 4 columns, an even number, on the wide pane.</li>
+                <li><b>Continuity.</b> The recharge state, the open detail, the selected tab and your scroll position all carry across poses.</li>
               </ul>
               <p className="mb-1 mt-3 text-[13px] font-bold text-[#292C31]">Shortcuts</p>
               <p>
-                <Kbd>F</Kbd> fold · <Kbd>G</Kbd> hinge · <Kbd>0</Kbd> zoom · <Kbd>?</Kbd> help
+                <Kbd>1</Kbd>–<Kbd>4</Kbd> poses · <Kbd>F</Kbd> close/open · <Kbd>G</Kbd> regions · <Kbd>0</Kbd> zoom
               </p>
+              <p className="mt-3 text-[11px] text-[#696B6F]">The point sizes are estimates taken from the HIG diagrams. Apple's page doesn't publish exact dimensions.</p>
             </motion.aside>
           )}
         </AnimatePresence>
@@ -169,39 +205,61 @@ function ToolButton({ active, onClick, title, children, className }: { active?: 
   );
 }
 
-/** The device body: titanium frame, side buttons, cameras and the hinge. */
-function Device({ finish, posture, children }: { finish: (typeof FINISHES)[number]; posture: Posture; children: React.ReactNode }) {
-  const open = posture === "unfolded";
+/**
+ * Device body. Closed: the hinge is the leading (left) edge, so those corners are tighter and the
+ * outer camera sits in the top trailing corner. Open: the inner camera hides behind the display.
+ */
+function Device({ finish, pose, children }: { finish: (typeof FINISHES)[number]; pose: Mode; children: React.ReactNode }) {
+  const closed = pose === "outer";
+  const book = pose === "book";
+  const r = closed ? { tl: 22, tr: 56, br: 56, bl: 22 } : { tl: 50, tr: 50, br: 50, bl: 50 };
+  const radius = `${r.tl}px ${r.tr}px ${r.br}px ${r.bl}px`;
+  const inner = (d: number) => `${Math.max(0, r.tl - d)}px ${Math.max(0, r.tr - d)}px ${Math.max(0, r.br - d)}px ${Math.max(0, r.bl - d)}px`;
   return (
-    <div className="relative h-full w-full rounded-[58px] p-[3px] shadow-[0_40px_80px_-20px_rgba(20,30,50,0.35),0_12px_24px_-8px_rgba(20,30,50,0.2)]" style={{ background: finish.body }}>
-      {/* side buttons */}
-      <span className="absolute -left-[3px] top-[150px] h-[30px] w-[4px] rounded-l-[2px]" style={{ background: finish.edge }} />
-      <span className="absolute -left-[3px] top-[200px] h-[56px] w-[4px] rounded-l-[2px]" style={{ background: finish.edge }} />
-      <span className="absolute -left-[3px] top-[268px] h-[56px] w-[4px] rounded-l-[2px]" style={{ background: finish.edge }} />
-      <span className="absolute -right-[3px] top-[220px] h-[86px] w-[4px] rounded-r-[2px]" style={{ background: finish.edge }} />
-      {/* hinge knuckles at the top and bottom edge */}
-      <motion.span animate={{ opacity: open ? 1 : 0 }} className="absolute left-1/2 top-[-2px] h-[5px] w-[22px] -translate-x-1/2 rounded-full" style={{ background: finish.edge }} />
-      <motion.span animate={{ opacity: open ? 1 : 0 }} className="absolute bottom-[-2px] left-1/2 h-[5px] w-[22px] -translate-x-1/2 rounded-full" style={{ background: finish.edge }} />
+    <motion.div
+      className="relative h-full w-full p-[3px] shadow-[0_40px_80px_-20px_rgba(20,30,50,0.35),0_12px_24px_-8px_rgba(20,30,50,0.2)]"
+      initial={false}
+      animate={{ borderRadius: radius }}
+      style={{ background: finish.body, borderRadius: radius }}
+    >
+      {/* hinge spine on the leading edge when closed */}
+      {closed && <span className="absolute -left-[4px] inset-y-[40px] w-[6px] rounded-l-[4px]" style={{ background: finish.edge }} />}
+      {/* buttons on the top edge */}
+      <span className="absolute -top-[3px] right-[90px] h-[4px] w-[52px] rounded-t-[2px]" style={{ background: finish.edge }} />
+      <span className="absolute -top-[3px] right-[150px] h-[4px] w-[34px] rounded-t-[2px]" style={{ background: finish.edge }} />
+      {/* hinge knuckles when open in landscape */}
+      {(pose === "open" || book) && (
+        <>
+          <span className="absolute left-1/2 top-[-3px] h-[6px] w-[26px] -translate-x-1/2 rounded-full" style={{ background: finish.edge }} />
+          <span className="absolute bottom-[-3px] left-1/2 h-[6px] w-[26px] -translate-x-1/2 rounded-full" style={{ background: finish.edge }} />
+        </>
+      )}
+      {pose === "portrait" && (
+        <>
+          <span className="absolute left-[-3px] top-1/2 h-[26px] w-[6px] -translate-y-1/2 rounded-full" style={{ background: finish.edge }} />
+          <span className="absolute right-[-3px] top-1/2 h-[26px] w-[6px] -translate-y-1/2 rounded-full" style={{ background: finish.edge }} />
+        </>
+      )}
 
-      <div className="relative h-full w-full rounded-[55px] bg-black" style={{ padding: BEZEL - 3 }}>
-        <div data-phone-screen className="relative h-full w-full overflow-hidden rounded-[46px] bg-white">
+      <motion.div className="relative h-full w-full bg-black" initial={false} animate={{ borderRadius: inner(3) }} style={{ padding: BEZEL - 3, borderRadius: inner(3) }}>
+        <motion.div data-phone-screen className="relative h-full w-full overflow-hidden bg-white" initial={false} animate={{ borderRadius: inner(BEZEL) }} style={{ borderRadius: inner(BEZEL) }}>
           {children}
-          {/* crease: a soft light/shadow band down the middle of the inner screen */}
-          <motion.span
-            animate={{ opacity: open ? 1 : 0 }}
-            className="pointer-events-none absolute inset-y-0 left-1/2 z-[70] w-[26px] -translate-x-1/2"
-            style={{ background: "linear-gradient(90deg,transparent,rgba(0,0,0,0.035) 35%,rgba(255,255,255,0.25) 50%,rgba(0,0,0,0.035) 65%,transparent)" }}
-          />
-          {/* cameras: Dynamic Island when folded, punch-hole in the right pane when unfolded */}
-          <motion.span
-            initial={false}
-            animate={open ? { width: 12, height: 12, left: "calc(75% - 6px)", top: 14 } : { width: 120, height: 34, left: "calc(50% - 60px)", top: 11 }}
-            transition={{ type: "spring", stiffness: 260, damping: 28 }}
-            className="pointer-events-none absolute z-[80] rounded-full bg-black"
-          />
-          <span className="pointer-events-none absolute bottom-2 left-1/2 z-[80] h-[5px] w-[134px] -translate-x-1/2 rounded-full bg-black/80" />
-        </div>
-      </div>
-    </div>
+          {/* crease */}
+          {pose !== "outer" && (
+            <span
+              className={cn("pointer-events-none absolute z-[70]", pose === "portrait" ? "inset-x-0 top-1/2 h-[26px] -translate-y-1/2" : "inset-y-0 left-1/2 w-[26px] -translate-x-1/2")}
+              style={{ background: `linear-gradient(${pose === "portrait" ? "180deg" : "90deg"},transparent,rgba(0,0,0,0.03) 35%,rgba(255,255,255,0.25) 50%,rgba(0,0,0,0.03) 65%,transparent)` }}
+            />
+          )}
+          {/* partially folded: the two halves catch light differently */}
+          {book && (
+            <span className="pointer-events-none absolute inset-0 z-[70]" style={{ background: "linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0.06) 47%,rgba(0,0,0,0.10) 50%,rgba(255,255,255,0.0) 53%,rgba(255,255,255,0) 100%)" }} />
+          )}
+          {/* outer front camera — always visible, top trailing corner, aligned with the side controls */}
+          {closed && <span className="pointer-events-none absolute right-[14px] top-[14px] z-[80] size-[36px] rounded-full bg-black" />}
+          {pose === "portrait" && <span className="pointer-events-none absolute bottom-2 left-1/2 z-[80] h-[5px] w-[134px] -translate-x-1/2 rounded-full bg-black/80" />}
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 }
