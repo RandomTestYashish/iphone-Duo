@@ -659,7 +659,6 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
     // Closed: compact width, single column, controls on the trailing rail.
     body = (
       <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden pb-10 pt-[18px]" style={{ right: RAIL }}>
-        <h1 className="px-4 pb-3 text-[28px] font-bold leading-[34px] tracking-[-0.4px] text-[#292C31]">{nav}</h1>
         {manage ? (
           <div className="flex flex-col gap-8">
             <CategoryTabs tab={tab} setTab={changeTab} />
@@ -683,7 +682,6 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
               <MenuIcon />
             </button>
           </div>
-          <h1 className="px-4 pb-3 pt-2 text-[28px] font-bold leading-[34px] tracking-[-0.4px] text-[#292C31]">{nav}</h1>
           {manage ? (
             <div className="flex flex-col gap-8">
               <CategoryTabs tab={tab} setTab={changeTab} />
@@ -694,9 +692,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
           )}
         </div>
         {/* Trailing pane (secondary): Discover, or the detail of what was tapped. */}
-        <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 overflow-y-auto overflow-x-hidden bg-white pb-10 pt-[18px]" style={{ left: trailX, width: trailW }}>
-          <div className="h-11" />
-          <h2 className="px-4 pb-4 pt-2 text-[28px] font-bold leading-[34px] tracking-[-0.4px] text-[#292C31]">Discover</h2>
+        <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 overflow-y-auto overflow-x-hidden bg-white pb-10 pt-[28px]" style={{ left: trailX, width: trailW }}>
           <div className="flex flex-col gap-8">{discover(3)}</div>
         </div>
       </>
