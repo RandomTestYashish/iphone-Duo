@@ -6,10 +6,12 @@ import type { DetailSpec } from "@/components/Overlays";
  * both halves of the inner display are drawn at once, so they all read the same state (continuity).
  */
 export type Pack = { price: number; days: number; data: string; till: string };
-type State = { tab: string; nav: string; pack: Pack | null; detail: DetailSpec | null; ratio: number };
+type State = { tab: string; nav: string; pack: Pack | null; detail: DetailSpec | null; ratio: number; pp: PP | null };
+/** Postpaid new-connection flow state (null = closed). */
+export type PP = Record<string, any> & { step: string; history: string[] };
 
 const startTab = typeof location !== "undefined" ? new URLSearchParams(location.search).get("tab") : null; // ?tab=Finance (review)
-let state: State = { tab: "All", nav: startTab ?? "Manage", pack: null, detail: null, ratio: 0 };
+let state: State = { tab: "All", nav: startTab ?? "Manage", pack: null, detail: null, ratio: 0, pp: null };
 const subs = new Set<() => void>();
 
 export const store = {

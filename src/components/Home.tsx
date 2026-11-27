@@ -8,6 +8,7 @@ import { Arrow, CARD, ClipTag, SectionTitle, StatusBar, useDragScroll } from "./
 import { Detail, DetailPanel, Drawer, SearchOverlay, Toast, type DetailSpec } from "./Overlays";
 import { store, useStore, type Pack } from "@/store";
 import { askUsScreen, familyScreen, financeScreen, type TabCtx, type TabScreen } from "./Tabs";
+import { PostpaidFlow, PostpaidSplit, openPostpaid } from "./Postpaid";
 
 /**
  * "Manage Landing" on iPhone Duo, following Apple's HIG "Designing for iPhone Duo":
@@ -570,6 +571,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
   const nav = useStore((s) => s.nav);
   const detail = useStore((s) => s.detail);
   const pack = useStore((s) => s.pack);
+  const pp = useStore((s) => s.pp);
   const setTab = (t: string) => store.set({ tab: t });
   const setNav = (n: string) => {
     store.setRatio(0);
@@ -612,6 +614,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
     }
   };
   const changeTab = (t: string) => {
+    if (t === "Postpaid") return openPostpaid(); // new postpaid connection journey
     setTab(t);
     if (t !== "All") toast(`Showing ${t} services`);
   };
@@ -748,6 +751,21 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
     );
   }
 
+  if (pp) {
+    body =
+      mode === "outer" ? (
+        <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ right: RAIL }}>
+          <PostpaidFlow ghost={ghost} />
+        </div>
+      ) : inner ? (
+        <PostpaidSplit leadW={lead} trailX={trailX} trailW={trailW} ghost={ghost} />
+      ) : (
+        <div className="absolute inset-x-0 bottom-0 top-[44px] overflow-hidden">
+          <PostpaidFlow ghost={ghost} />
+        </div>
+      );
+  }
+
   return (
     <div data-screen className={cn("relative h-full w-full overflow-hidden bg-white", ghost && "pointer-events-none")} {...(ghost ? { inert: "" } : {})}>
       {body}
@@ -755,7 +773,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
       {mode === "portrait" ? (
         <>
           <StatusBar className="absolute inset-x-0 top-0 z-30 bg-white/90 backdrop-blur" />
-          <BottomNav nav={nav} setNav={setNav} hidden={navHidden && !detail} />
+          {!pp && <BottomNav nav={nav} setNav={setNav} hidden={navHidden && !detail} />}
         </>
       ) : (
         <Rail nav={nav} setNav={setNav} toolbar={toolbar} />
