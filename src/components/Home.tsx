@@ -493,8 +493,21 @@ const NAV = [
   { l: "Ask Us", i: "bn-askus.svg" },
 ];
 
-function NavIcon({ n, k }: { n: (typeof NAV)[number]; k: number }) {
-  return k === 0 && __DEMO__ ? <BrandMark className="size-[21px] text-[11px]" /> : <img src={home(n.i)} alt="" className="size-[21px]" />;
+/** Tab icon: red when selected, black otherwise; the new selection lands with a small pop. */
+function NavIcon({ n, k, active }: { n: (typeof NAV)[number]; k: number; active: boolean }) {
+  if (k === 0 && __DEMO__) return <BrandMark className="size-[21px] text-[11px]" />;
+  const base = n.i.replace(".svg", "");
+  return (
+    <motion.img
+      key={active ? "on" : "off"}
+      src={home(`${base}-${active ? "on" : "off"}.svg`)}
+      alt=""
+      className="size-[21px] object-contain"
+      initial={active ? { scale: 0.6, opacity: 0.4 } : false}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", visualDuration: 0.4, bounce: 0.55 }}
+    />
+  );
 }
 
 /** Horizontal bars (inner display in portrait) — the original Bottom Nav_Refresh ✅. */
@@ -508,9 +521,9 @@ function BottomNav({ nav, setNav, hidden }: { nav: string; setNav: (n: string) =
             const active = nav === n.l;
             return (
               <button key={n.l} onClick={() => setNav(n.l)} className="relative flex size-11 shrink-0 flex-col items-center justify-center">
-                {active && <motion.span layoutId="nav-pill" className="absolute left-[-28px] top-[-7px] h-14 w-[100px] rounded-full border border-[#E6F0FF] bg-[#FBFCFD]" />}
+                {active && <motion.span layoutId="nav-pill" className="absolute left-[-28px] top-[-7px] h-14 w-[100px] rounded-full border border-[#E6F0FF] bg-[#FBFCFD]" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
                 <span className="relative flex size-8 items-center justify-center">
-                  <NavIcon n={n} k={k} />
+                  <NavIcon n={n} k={k} active={active} />
                 </span>
                 <span className={cn("relative whitespace-nowrap text-[10px] leading-3", active ? "font-bold text-[#FD2F36]" : "font-normal text-[#292C31]")}>{n.l}</span>
               </button>
@@ -554,7 +567,7 @@ function Rail({ nav, setNav, toolbar }: { nav: string; setNav: (n: string) => vo
             <button key={n.l} title={n.l} aria-label={n.l} onClick={() => setNav(n.l)} className="relative flex size-11 items-center justify-center rounded-full">
               {active && <motion.span layoutId="rail-pill" className="absolute inset-0 rounded-full bg-[#F0F4F9]" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
               <span className="relative">
-                <NavIcon n={n} k={k} />
+                <NavIcon n={n} k={k} active={active} />
               </span>
             </button>
           );
@@ -667,7 +680,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
   const navHidden = chrome.navHidden;
   const tabsNode = other ? other.tabs : <CategoryTabs tab={tab} setTab={changeTab} />;
   const headerNode = other ? other.top : topBar;
-  const sTop = tabsNode ? <StickyTop chrome={chrome} top={mode === "portrait" ? 44 : 0} header={headerNode} tabs={tabsNode} /> : headerNode;
+  const sTop = tabsNode ? <StickyTop chrome={chrome} top={0} header={headerNode} tabs={tabsNode} /> : headerNode;
   const sPrimary = other ? other.primary : primary;
   const sSecondary = revealEach(other ? other.secondary : discover(3), ghost);
   const fab = other?.fab;
