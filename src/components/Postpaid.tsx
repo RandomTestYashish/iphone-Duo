@@ -58,8 +58,8 @@ const INITIAL: PP = {
   sheet: null,
 };
 
-export function openPostpaid(step?: string) {
-  store.set({ pp: { ...INITIAL, step: step ?? "intro", focus: step ? FOCUS[step] ?? null : null } });
+export function openPostpaid(step?: string, kind: "prepaid" | "postpaid" = "postpaid") {
+  store.set({ pp: { ...INITIAL, kind, step: step ?? "intro", focus: step ? FOCUS[step] ?? null : null } });
 }
 // ?flow=mobile opens the journey at a step (for review)
 const startFlow = typeof location !== "undefined" ? new URLSearchParams(location.search).get("flow") : null;
@@ -400,11 +400,11 @@ const STEPS: Record<string, Step> = {
   intro: {
     kind: "page",
     stage: 0,
-    body: () => (
+    body: (pp) => (
       <div className="flex flex-col gap-4">
         <p className="text-[14px] font-bold text-[#292C31]">Choose your connection type</p>
-        <OptionCard icon="ic-prepaid" title="Prepaid" sub="Stay in control, recharge as per your needs" onClick={() => go("mobile", { kind: "prepaid" })} />
-        <OptionCard icon="ic-postpaid" title="Postpaid" sub="More convenience, fewer recharges" onClick={() => go("mobile", { kind: "postpaid" })} selected />
+        <OptionCard icon="ic-prepaid" title="Prepaid" sub="Stay in control, recharge as per your needs" onClick={() => go("mobile", { kind: "prepaid" })} selected={pp.kind === "prepaid"} />
+        <OptionCard icon="ic-postpaid" title="Postpaid" sub="More convenience, fewer recharges" onClick={() => go("mobile", { kind: "postpaid" })} selected={pp.kind !== "prepaid"} />
       </div>
     ),
     footer: () => <Safe />,
@@ -662,13 +662,13 @@ const STEPS: Record<string, Step> = {
   plan: {
     kind: "page",
     stage: 1,
-    body: () => (
+    body: (pp) => (
       <div className="flex flex-col gap-4">
-        <Title title="Here is your postpaid plan" />
+        <Title title={pp.kind === "prepaid" ? "Here is your prepaid pack" : "Here is your postpaid plan"} />
         <div className={cn("rounded-[16px] p-4", CARD)}>
           <p className="flex items-baseline gap-1">
-            <span className="text-[28px] font-bold text-[#292C31]">₹449</span>
-            <span className="text-[12px] text-[#696B6F]">/month + GST</span>
+            <span className="text-[28px] font-bold text-[#292C31]">{pp.kind === "prepaid" ? "₹399" : "₹449"}</span>
+            <span className="text-[12px] text-[#696B6F]">{pp.kind === "prepaid" ? "/28 days" : "/month + GST"}</span>
           </p>
           <div className="mt-3 grid grid-cols-3 gap-2 border-b border-[#E6E9EF] pb-3 text-center">
             {[
@@ -725,9 +725,9 @@ const STEPS: Record<string, Step> = {
         <div className={cn("rounded-[16px] p-4", CARD)}>
           <p className="text-[11px] font-bold uppercase tracking-[1.76px] text-[#3E4146]">Amount payable</p>
           <div className="mt-3 flex justify-between text-[13px]">
-            <span className="text-[#3E4146]">Postpaid</span>
+            <span className="text-[#3E4146]">{pp.kind === "prepaid" ? "Prepaid pack" : "Postpaid"}</span>
             <span className="font-semibold text-[#292C31]">
-              ₹449 <span className="font-normal text-[#696B6F]">+GST / Month</span>
+              {pp.kind === "prepaid" ? "₹399" : "₹449"} <span className="font-normal text-[#696B6F]">{pp.kind === "prepaid" ? "/ 28 days" : "+GST / Month"}</span>
             </span>
           </div>
           <div className="mt-2 flex justify-between text-[13px]">
@@ -1045,7 +1045,7 @@ const STEPS: Record<string, Step> = {
   success: {
     kind: "page",
     stage: 3,
-    body: (pp) => <Success esim={pp.sim === "esim"} />,
+    body: (pp) => <Success esim={pp.sim === "esim"} kind={pp.kind} />,
     footer: () => (
       <Btn className="w-full" onClick={() => store.set({ pp: null })}>
         Done
@@ -1104,7 +1104,7 @@ function EidFetch({ stage }: { stage: string }) {
   );
 }
 
-function Success({ esim }: { esim: boolean }) {
+function Success({ esim, kind }: { esim: boolean; kind?: string }) {
   const steps = esim
     ? [
         ["Connect to a Wi-Fi or hotspot", "Keep the eSIM enabled handset connected to Wi-FI or hotspot"],
@@ -1120,7 +1120,7 @@ function Success({ esim }: { esim: boolean }) {
     <div className="flex flex-col items-center gap-4">
       <motion.img initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 16 }} src={pic("tick")} alt="" className="size-[72px] mix-blend-multiply" />
       <div className="text-center">
-        <p className="text-[16px] font-bold text-[#292C31]">Your {esim ? "eSIM" : "postpaid"} order has been placed!</p>
+        <p className="text-[16px] font-bold text-[#292C31]">Your {esim ? "eSIM" : kind === "prepaid" ? "prepaid" : "postpaid"} order has been placed!</p>
         <p className="mt-1 text-[12px] text-[#696B6F]">
           Request ID: <span className="text-[#075EE8]">1234567890</span>
         </p>
@@ -1507,7 +1507,7 @@ function Scene({ pp, compact }: { pp: PP; compact?: boolean }) {
   const stage = STEPS[pp.step]?.stage ?? 0;
   const steps = ["Share your details", "Make your payment", "Complete your KYC & activate"];
   const summary = [
-    pp.kind && ["Connection", pp.kind === "prepaid" ? "Prepaid" : "Postpaid · ₹449/month"],
+    pp.kind && ["Connection", pp.kind === "prepaid" ? "Prepaid · ₹399/28 days" : "Postpaid · ₹449/month"],
     pp.mobile.length === 10 && ["Contact", pp.mobile],
     pp.history.includes("address") && ["Deliver to", "B 446, sushant lok, gurgaon"],
     pp.conn && ["Number", pp.conn === "port" ? `Port ${pp.portNumber || ""}`.trim() : pp.newNumber || "New number"],

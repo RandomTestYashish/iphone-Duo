@@ -624,7 +624,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
     if (!ghost) store.setRatio(y / Math.max(1, el.scrollHeight - el.clientHeight));
   };
   const changeTab = (t: string) => {
-    if (t === "Postpaid") return openPostpaid(); // new postpaid connection journey
+    if (t === "Postpaid" || t === "Prepaid") return openPostpaid(undefined, t === "Prepaid" ? "prepaid" : "postpaid"); // new connection journey
     setTab(t);
     if (t !== "All") toast(`Showing ${t} services`);
   };
