@@ -1520,7 +1520,7 @@ function Scene({ pp, compact }: { pp: PP; compact?: boolean }) {
         <p className="max-w-[60%] text-[24px] font-bold leading-[30px] text-[#292C31]">
           Your new Airtel SIM, <span className="text-[#E32121]">just 3 steps away</span>
         </p>
-        <img src={pic("hero-rider")} alt="" className="absolute right-0 top-2 w-[150px] mix-blend-multiply" />
+        <img src={pic("hero-rider")} alt="" className="absolute -right-2 top-0 w-[200px]" />
       </div>
       <div className="relative z-10 mt-6 flex flex-col gap-3 px-5">
         {steps.map((s, k) => {
