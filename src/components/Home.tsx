@@ -9,7 +9,7 @@ import { Detail, DetailPanel, Drawer, SearchOverlay, Toast, type DetailSpec } fr
 import { store, useStore, type Pack } from "@/store";
 import { askUsScreen, familyScreen, financeScreen, type TabCtx, type TabScreen } from "./Tabs";
 import { PostpaidFlow, PostpaidSplit, openPostpaid } from "./Postpaid";
-import { ScrollYProvider, StickyTop, revealEach, useHeroEase, useScrollChrome } from "./chrome";
+import { ScrollYProvider, StickyTop, useHeroEase, useScrollChrome } from "./chrome";
 
 /**
  * "Manage Landing" on iPhone Duo, following Apple's HIG "Designing for iPhone Duo":
@@ -682,7 +682,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
   const headerNode = other ? other.top : topBar;
   const sTop = tabsNode ? <StickyTop chrome={chrome} top={0} header={headerNode} tabs={tabsNode} /> : headerNode;
   const sPrimary = other ? other.primary : primary;
-  const sSecondary = revealEach(other ? other.secondary : discover(3), ghost);
+  const sSecondary = other ? other.secondary : discover(3);
   const fab = other?.fab;
 
   let body: React.ReactNode;
@@ -750,7 +750,9 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
               </div>
             </div>
             <div className="mt-8 flex flex-col gap-8">
-              {revealEach(<><MightLike ctx={ctx} /><Fresh ctx={ctx} /><Claim ctx={ctx} /></>, ghost)}
+              <MightLike ctx={ctx} />
+              <Fresh ctx={ctx} />
+              <Claim ctx={ctx} />
             </div>
           </>
         )}
@@ -783,7 +785,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
 
       {mode === "portrait" ? (
         <>
-          <StatusBar className="absolute inset-x-0 top-0 z-30 bg-white/90 backdrop-blur" />
+          <StatusBar className="absolute inset-x-0 top-0 z-30 bg-white" />
           {!pp && <BottomNav nav={nav} setNav={setNav} hidden={navHidden && !detail} />}
         </>
       ) : (

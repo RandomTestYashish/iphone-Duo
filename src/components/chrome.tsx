@@ -46,7 +46,8 @@ export function useScrollChrome(ref: React.RefObject<HTMLElement>, deps: unknown
     let velocity = 0;
     let headerHidden = false;
     let nav = false;
-    let tabsCompact = false;
+    let tabsCompact = page.scrollTop > TABS_COMPACT_AT; // keep the shrunk tabs when a pose change lands mid-page
+    compact.set(tabsCompact ? 1 : 0);
     let ticking = false;
     let stopTimer = 0;
 
