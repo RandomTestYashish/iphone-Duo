@@ -597,6 +597,9 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
   useLayoutEffect(() => {
     const el = scroller.current;
     if (el) el.scrollTop = store.get().ratio * (el.scrollHeight - el.clientHeight);
+    // ?scroll=600 scrolls every pane on load (for reviewing long screens)
+    const y = Number(new URLSearchParams(location.search).get("scroll") || 0);
+    if (y) setTimeout(() => document.querySelectorAll<HTMLElement>("[data-screen] .overflow-y-auto").forEach((n) => (n.scrollTop = y)), 50);
   }, [mode]);
 
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
