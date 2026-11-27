@@ -694,15 +694,17 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
     body = (
       <>
         {/* Leading pane (primary). Its own controls sit at the top of the pane, like Mail's list. */}
-        <div key={nav} className={cn("no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden border-r border-[#E6E9EF] bg-white", fab ? "pb-24" : "pb-10")} style={{ width: lead }}>
+        <div key={nav} className="no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden border-r border-[#E6E9EF] bg-white pb-10" style={{ width: lead }}>
           <div className="pt-[6px]">{sTop}</div>
           <div className="flex flex-col gap-8">{sPrimary}</div>
         </div>
-        {fab && <div className="absolute bottom-6 left-0 z-20 flex justify-center" style={{ width: lead }}>{fab}</div>}
+        
         {/* Trailing pane (secondary), or the detail of what was tapped. */}
         <div key={nav} ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 overflow-y-auto overflow-x-hidden bg-white pb-10 pt-[30px]" style={{ left: trailX, width: trailW }}>
-          <div className="flex flex-col gap-8">{sSecondary}</div>
+          <div className={cn("flex flex-col gap-8", fab && "pb-16")}>{sSecondary}</div>
         </div>
+        {/* Floating action sits on the trailing (secondary) pane, clear of the fold */}
+        {fab && <div className="absolute bottom-6 z-20 flex justify-center" style={{ left: trailX, width: trailW }}>{fab}</div>}
       </>
     );
   } else {

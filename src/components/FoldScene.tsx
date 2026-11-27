@@ -1,14 +1,12 @@
 import { Home, SIZES } from "./Home";
 
 /**
- * iPhone Duo open / close transition, modelled on how the real device is described:
+ * iPhone Duo open / close transition as a real 3D hinge.
  *  - Only the cover half moves; the half with the rear cameras stays put.
- *  - Screen content uses a fixed front-view projection: it doesn't rotate with the panel. The panel's
- *    edge sweeps around the hinge and reveals content that stays anchored in place (the outer UI stays
- *    aligned with its hinge-side edge).
- *  - The display turning away blurs and darkens, most at its far edge (blur ∝ motion · edge^1.35,
- *    darkening at twice the strength). Inner content is sharp when open and outer content is sharp
- *    when closed; each ramps between flat and 90°.
+ *  - The cover swings about the hinge (CSS rotateY with perspective). Its front face is the left
+ *    half of the inner display; its back face is the outer display, which lands on top when closed.
+ *  - The display turning away blurs and darkens, most at its far edge; each face is sharp when it
+ *    faces the viewer flat and ramps between flat and 90°.
  *
  * `p` is 0 (closed) … 1 (open). Hinge angle = 180·p degrees.
  */
@@ -16,83 +14,84 @@ import { Home, SIZES } from "./Home";
 const B = 10; // bezel
 const { w: IW, h: IH } = SIZES.open;
 const HW = IW / 2;
+const R = 50; // outer corner radius
+const PW = HW + B; // panel width (half device)
+const PH = IH + 2 * B;
 
 const smooth = (x: number) => {
   const t = Math.min(1, Math.max(0, x));
   return t * t * (3 - 2 * t);
 };
 
-export function FoldScene({ p, body, edge }: { p: number; body: string; edge: string }) {
-  const theta = Math.PI * (1 - p); // 0 open … π closed (fold angle)
-  const c = Math.cos(theta);
-  const s = Math.sin(theta);
-  const innerMotion = smooth(theta / (Math.PI / 2)); // 0 open → 1 at 90°
-  const outerMotion = smooth((Math.PI - theta) / (Math.PI / 2)); // 0 closed → 1 at 90°
-  const front = c >= 0; // cover shows the inner display (left of hinge) or its back, the outer display
-  const span = HW * Math.abs(c); // projected width of the cover
-  const lift = 0.07 * s; // far edge grows a little as it comes towards the viewer
-  const hingeX = HW + B; // in scene coordinates (left bezel B)
-
-  // Cover outline (projected), far edge slightly taller.
-  const farX = front ? hingeX - span - B * Math.abs(c) : hingeX + span + B * Math.abs(c);
-  const farTop = -IH * lift * 0.5;
-  const farBot = IH + 2 * B + IH * lift * 0.5;
-  const poly = front
-    ? `polygon(${farX}px ${farTop}px, ${hingeX}px 0px, ${hingeX}px ${IH + 2 * B}px, ${farX}px ${farBot}px)`
-    : `polygon(${hingeX}px 0px, ${farX}px ${farTop}px, ${farX}px ${farBot}px, ${hingeX}px ${IH + 2 * B}px)`;
-
-  const blur = (m: number) => `blur(${(10 * m).toFixed(2)}px)`;
-  // darkening gradient from the hinge (none) to the far edge (strongest), pow 1.35, ×2 strength
-  const darken = (m: number, dir: "left" | "right") =>
-    `linear-gradient(to ${dir}, rgba(0,0,0,0) 20%, rgba(0,0,0,${Math.min(1, m * 1.2).toFixed(3)}) 100%)`;
-
+function Body({ children, side, body, closed }: { children: React.ReactNode; side: "left" | "right"; body: string; closed?: boolean }) {
+  // Rounded on the far edge, square on the hinge edge.
+  const far = closed ? 46 : R;
+  const r = side === "left" ? `${far}px 4px 4px ${far}px` : `4px ${far}px ${far}px 4px`;
+  const ri = side === "left" ? `${far - 3}px 2px 2px ${far - 3}px` : `2px ${far - 3}px ${far - 3}px 2px`;
+  const rs = side === "left" ? `${far - B}px 0 0 ${far - B}px` : `0 ${far - B}px ${far - B}px 0`;
   return (
-    <div className="relative" style={{ width: IW + 2 * B, height: IH + 2 * B }}>
-      {/* Fixed half (rear-camera side): inner display, right half */}
-      <div className="absolute overflow-hidden" style={{ left: hingeX, top: 0, width: HW + B, height: IH + 2 * B, background: body, borderRadius: "0 54px 54px 0", padding: 3, paddingLeft: 0 }}>
-        <div className="h-full w-full overflow-hidden bg-black" style={{ borderRadius: "0 51px 51px 0", padding: `${B - 3}px ${B - 3}px ${B - 3}px 0` }}>
-          <div className="relative h-full w-full overflow-hidden rounded-r-[44px] bg-white">
-            <div className="absolute top-0" style={{ left: -HW, width: IW, height: IH, filter: `brightness(${(0.55 + 0.45 * p).toFixed(3)})` }}>
-              <Home mode="open" showRegions={false} ghost />
-            </div>
-            {/* shadow the cover casts as it closes over this half */}
-            {!front && <div className="absolute inset-y-0 left-0" style={{ width: span + 40, background: `linear-gradient(to right, rgba(0,0,0,${(0.35 * (1 - outerMotion)).toFixed(3)}), rgba(0,0,0,0))` }} />}
-          </div>
+    <div className="absolute inset-0 p-[3px]" style={{ background: body, borderRadius: r }}>
+      <div className="h-full w-full bg-black" style={{ borderRadius: ri, padding: side === "left" ? `${B - 3}px 0 ${B - 3}px ${B - 3}px` : `${B - 3}px ${B - 3}px ${B - 3}px 0` }}>
+        <div className="relative h-full w-full overflow-hidden bg-white" style={{ borderRadius: rs }}>
+          {children}
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Cover half: projected outline; content fixed in place, clipped by the sweeping edge */}
-      <div className="absolute inset-0" style={{ clipPath: poly }}>
-        {/* body + bezel of the cover */}
-        <div className="absolute" style={{ left: front ? hingeX - HW - B : hingeX, top: farTop, width: HW + B, height: farBot - farTop, background: body, borderRadius: front ? "54px 0 0 54px" : "0 54px 54px 0" }} />
-        <div className="absolute bg-black" style={{ left: front ? hingeX - HW - B + 3 : hingeX, top: farTop + 3, width: HW + B - 3, height: farBot - farTop - 6, borderRadius: front ? "51px 0 0 51px" : "0 51px 51px 0" }} />
-        {front ? (
-          <div className="absolute overflow-hidden rounded-l-[44px] bg-white" style={{ left: B, top: B, width: HW, height: IH }}>
+export function FoldScene({ p, body, edge }: { p: number; body: string; edge: string }) {
+  const angle = 180 * (1 - p); // 0 open … 180 closed
+  const theta = (angle * Math.PI) / 180;
+  const innerMotion = smooth(theta / (Math.PI / 2));
+  const outerMotion = smooth((Math.PI - theta) / (Math.PI / 2));
+  const blur = (m: number) => `blur(${(8 * m).toFixed(2)}px)`;
+  const lightFront = Math.max(0, Math.cos(theta)); // how flat the front faces the viewer
+  const lightBack = Math.max(0, -Math.cos(theta));
+
+  return (
+    <div className="relative" style={{ width: IW + 2 * B, height: PH, perspective: 2600, perspectiveOrigin: `${PW}px 50%` }}>
+      {/* Fixed half: inner display, right half */}
+      <div className="absolute top-0" style={{ left: PW, width: PW, height: PH }}>
+        <Body side="right" body={body}>
+          <div className="absolute top-0" style={{ left: -HW, width: IW, height: IH, filter: `brightness(${(0.6 + 0.4 * p).toFixed(3)})` }}>
+            <Home mode="open" showRegions={false} ghost />
+          </div>
+          {/* shadow of the cover as it comes down */}
+          <div className="pointer-events-none absolute inset-0" style={{ background: `linear-gradient(to right, rgba(0,0,0,${(0.35 * Math.sin(theta) * (angle > 90 ? 1 : 0.4)).toFixed(3)}), rgba(0,0,0,0) 70%)` }} />
+        </Body>
+      </div>
+
+      {/* Moving cover: rotates about the hinge (its right edge) */}
+      <div className="absolute left-0 top-0" style={{ width: PW, height: PH, transformOrigin: "100% 50%", transformStyle: "preserve-3d", transform: `rotateY(${angle.toFixed(2)}deg)` }}>
+        {/* front face: inner display, left half */}
+        <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}>
+          <Body side="left" body={body}>
             <div className="absolute left-0 top-0" style={{ width: IW, height: IH, filter: blur(innerMotion) }}>
               <Home mode="open" showRegions={false} ghost />
             </div>
-            <div className="absolute inset-0" style={{ background: darken(innerMotion, "left") }} />
-          </div>
-        ) : (
-          <div className="absolute overflow-hidden bg-white" style={{ left: hingeX, top: B, width: HW, height: IH, borderRadius: "4px 44px 44px 4px" }}>
+            <div className="pointer-events-none absolute inset-0" style={{ background: `linear-gradient(to left, rgba(0,0,0,0) 15%, rgba(0,0,0,${Math.min(0.85, innerMotion * 0.9).toFixed(3)}))` }} />
+          </Body>
+          <div className="pointer-events-none absolute inset-0 rounded-l-[50px]" style={{ background: `rgba(255,255,255,${(0.08 * (1 - lightFront)).toFixed(3)})` }} />
+        </div>
+        {/* back face: outer display (hinge on its left edge when closed) */}
+        <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
+          <Body side="right" body={body} closed>
             <div className="absolute left-0 top-0" style={{ width: SIZES.outer.w, height: SIZES.outer.h, filter: blur(outerMotion) }}>
               <Home mode="outer" showRegions={false} ghost />
             </div>
             <span className="absolute right-[14px] top-[14px] size-[36px] rounded-full bg-black" />
-            <div className="absolute inset-0" style={{ background: darken(outerMotion, "right") }} />
-          </div>
-        )}
-        {/* light on the moving panel */}
-        <div className="pointer-events-none absolute inset-0" style={{ background: `linear-gradient(${front ? "to left" : "to right"}, rgba(255,255,255,${(0.10 * s).toFixed(3)}), rgba(0,0,0,${(0.12 * s).toFixed(3)}))` }} />
-        {/* the far edge: titanium rim catching light */}
-        <div className="absolute" style={{ left: front ? farX : farX - 4, top: farTop, width: 4, height: farBot - farTop, background: edge, opacity: 0.9 * s }} />
+            <div className="pointer-events-none absolute inset-0" style={{ background: `linear-gradient(to right, rgba(0,0,0,0) 15%, rgba(0,0,0,${Math.min(0.85, outerMotion * 0.9).toFixed(3)}))` }} />
+          </Body>
+          <div className="pointer-events-none absolute inset-0 rounded-r-[46px]" style={{ background: `rgba(255,255,255,${(0.08 * (1 - lightBack)).toFixed(3)})` }} />
+        </div>
       </div>
 
-      {/* hinge */}
-      <div className="absolute top-0 h-full" style={{ left: hingeX - 3, width: 6, background: `linear-gradient(90deg, ${edge}, rgba(255,255,255,0.4), ${edge})`, opacity: 0.6 }} />
+      {/* hinge spine */}
+      <div className="absolute top-[6px] rounded-full" style={{ left: PW - 3, width: 6, height: PH - 12, background: `linear-gradient(90deg, ${edge}, rgba(255,255,255,0.5), ${edge})`, opacity: 0.7 }} />
     </div>
   );
 }
 
 /** Scene width/height and where the visible device sits, so the viewer can keep it centred. */
-export const FOLD_SCENE = { w: IW + 2 * B, h: IH + 2 * B, half: HW + B };
+export const FOLD_SCENE = { w: IW + 2 * B, h: PH, half: PW };
