@@ -23,7 +23,7 @@ const art = (n: string) => arts[`../assets/art/${n}`];
 const finA = (n: string) => fin[`../assets/fin/${n}`];
 
 export type TabCtx = { open: (d: DetailSpec) => void; toast: (t: string) => void; menu: () => void };
-export type TabScreen = { top: React.ReactNode; primary: React.ReactNode; secondary: React.ReactNode; fab?: React.ReactNode };
+export type TabScreen = { top: React.ReactNode; tabs?: React.ReactNode; primary: React.ReactNode; secondary: React.ReactNode; fab?: React.ReactNode };
 
 const info = (c: TabCtx, title: string, body: string, cta = "Continue", img?: string): (() => void) => () => c.open({ kind: "info", title, body, cta, img });
 
@@ -153,7 +153,7 @@ function FinanceTabs({ c }: { c: TabCtx }) {
         const active = tab === t.l;
         return (
           <button key={t.l} onClick={() => { setTab(t.l); if (t.l !== "All") c.toast(`Showing ${t.l}`); }} className="flex w-16 shrink-0 flex-col items-center gap-2">
-            <span className={cn("relative size-16 overflow-hidden rounded-[16px]", active ? "bg-[#CDD3DD]" : "bg-[#F0F4F9] hover:bg-[#E6E9EF]")}>
+            <span className={cn("ct-scale relative size-16 overflow-hidden rounded-[16px]", active ? "bg-[#CDD3DD]" : "bg-[#F0F4F9] hover:bg-[#E6E9EF]")}>
               {active && (
                 <motion.span layoutId="fin-tab" className="absolute inset-0">
                   {[0, 1, 2, 3].map((i) => (
@@ -170,7 +170,7 @@ function FinanceTabs({ c }: { c: TabCtx }) {
               )}
               <img src={finA(t.i)} alt="" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ width: t.w, height: t.h }} />
             </span>
-            <span className="flex h-7 flex-col items-center gap-2">
+            <span className="ct-label flex h-7 flex-col items-center gap-2">
               <span className={cn("whitespace-nowrap text-[12px] leading-[14px] text-[#292C31]", active ? "font-bold" : "font-normal")}>{t.l}</span>
               {active && <motion.span layoutId="fin-line" className="h-[2px] w-8 rounded-full bg-[linear-gradient(0deg,#FC5252,#E32121)]" />}
             </span>
@@ -229,9 +229,9 @@ export function financeScreen(c: TabCtx): TabScreen {
           <img src={home("nav-qr.png")} alt="" className="size-5 mix-blend-multiply" />
         </button>
       </header>
-      <FinanceTabs c={c} />
     </>
   );
+  const tabs = <FinanceTabs c={c} />;
 
   const primary = (
     <>
@@ -347,7 +347,7 @@ export function financeScreen(c: TabCtx): TabScreen {
       <ScanLine className="size-5" strokeWidth={2} /> Scan any QR
     </button>
   );
-  return { top, primary, secondary, fab };
+  return { top, tabs, primary, secondary, fab };
 }
 
 /* ================= FAMILY ================= */

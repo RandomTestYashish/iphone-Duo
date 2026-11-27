@@ -9,6 +9,7 @@ import { Detail, DetailPanel, Drawer, SearchOverlay, Toast, type DetailSpec } fr
 import { store, useStore, type Pack } from "@/store";
 import { askUsScreen, familyScreen, financeScreen, type TabCtx, type TabScreen } from "./Tabs";
 import { PostpaidFlow, PostpaidSplit, openPostpaid } from "./Postpaid";
+import { ScrollYProvider, StickyTop, revealEach, useHeroEase, useScrollChrome } from "./chrome";
 
 /**
  * "Manage Landing" on iPhone Duo, following Apple's HIG "Designing for iPhone Duo":
@@ -108,7 +109,7 @@ function CategoryTabs({ tab, setTab }: { tab: string; setTab: (t: string) => voi
         const active = tab === c.label;
         return (
           <button key={c.label} onClick={() => setTab(c.label)} className="flex w-16 shrink-0 flex-col items-center gap-2">
-            <span className={cn("relative size-16 overflow-hidden rounded-[16px] transition-colors", active ? "bg-[#CDD3DD]" : "bg-[#F0F4F9] hover:bg-[#E6E9EF]")}>
+            <span className={cn("ct-scale relative size-16 overflow-hidden rounded-[16px] transition-colors", active ? "bg-[#CDD3DD]" : "bg-[#F0F4F9] hover:bg-[#E6E9EF]")}>
               {active && (
                 <motion.span layoutId="tab-bg" className="absolute inset-0" transition={{ type: "spring", stiffness: 500, damping: 40 }}>
                   {[0, 1, 2, 3].map((i) => (
@@ -125,7 +126,7 @@ function CategoryTabs({ tab, setTab }: { tab: string; setTab: (t: string) => voi
               )}
               <img src={home(c.icon)} alt="" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ width: c.w, height: c.h }} />
             </span>
-            <span className="flex h-7 flex-col items-center justify-start gap-2">
+            <span className="ct-label flex h-7 flex-col items-center justify-start gap-2">
               <span className={cn("whitespace-nowrap text-[12px] leading-[14px] text-[#292C31]", active ? "font-bold" : "font-normal")}>{c.label}</span>
               {active && <motion.span layoutId="tab-line" className="h-[2px] w-8 rounded-full bg-[linear-gradient(0deg,#FC5252,#E32121)]" />}
             </span>
@@ -137,10 +138,11 @@ function CategoryTabs({ tab, setTab }: { tab: string; setTab: (t: string) => voi
 }
 
 function PackStatus({ ctx }: { ctx: Ctx }) {
+  const ease = useHeroEase();
   const p = ctx.pack;
   return (
     <div className="bg-[#F0F4F9] px-4 pb-4 pt-[22px]">
-      <div className="flex flex-col gap-4">
+      <motion.div className="flex flex-col gap-4 origin-top" style={ease}>
         <div className={cn("relative flex flex-col items-center gap-5 rounded-[16px] px-4 pb-6 pt-5 drop-shadow-[0_4px_6px_rgba(0,0,0,0.04)]", CARD)}>
           <div className="absolute left-1/2 top-[-7px] -translate-x-1/2">
             <ClipTag size="lg" tone={p ? "green" : "red"}>{p ? "Pack Active" : "Pack Status"}</ClipTag>
@@ -180,7 +182,7 @@ function PackStatus({ ctx }: { ctx: Ctx }) {
             {p ? "Recharge Again" : "Recharge Now"}
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -582,9 +584,8 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
   const [menu, setMenu] = useState(false);
   const [search, setSearch] = useState(false);
   const [toastMsg, setToast] = useState<{ id: number; t: string } | null>(null);
-  const [navHidden, setNavHidden] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
-  const lastY = useRef(0);
+  const leadRef = useRef<HTMLDivElement>(null);
 
   const toast = (t: string) => setToast({ id: Date.now(), t });
   const ctx: Ctx = { open: setDetail, toast, pack };
@@ -608,10 +609,6 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
     const el = e.currentTarget;
     const y = el.scrollTop;
     if (!ghost) store.setRatio(y / Math.max(1, el.scrollHeight - el.clientHeight));
-    if (Math.abs(y - lastY.current) > 8) {
-      setNavHidden(y > lastY.current && y > 120);
-      lastY.current = y;
-    }
   };
   const changeTab = (t: string) => {
     if (t === "Postpaid") return openPostpaid(); // new postpaid connection journey
@@ -665,14 +662,14 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
   // Finance / Family / Ask Us: each tab gives a top, a primary part and a secondary part.
   const tabCtx: TabCtx = { open: setDetail, toast, menu: () => setMenu(true) };
   const other: TabScreen | null = manage ? null : nav === "Finance" ? financeScreen(tabCtx) : nav === "Family" ? familyScreen(tabCtx) : askUsScreen(tabCtx);
-  const sTop = other ? other.top : (
-    <>
-      {topBar}
-      <CategoryTabs tab={tab} setTab={changeTab} />
-    </>
-  );
+  // Homepage scroll interaction (top nav leaves, tabs pin and shrink, bottom nav follows the scroll).
+  const chrome = useScrollChrome(inner ? leadRef : scroller, [mode, nav, !!pp]);
+  const navHidden = chrome.navHidden;
+  const tabsNode = other ? other.tabs : <CategoryTabs tab={tab} setTab={changeTab} />;
+  const headerNode = other ? other.top : topBar;
+  const sTop = tabsNode ? <StickyTop chrome={chrome} top={mode === "portrait" ? 44 : 0} header={headerNode} tabs={tabsNode} /> : headerNode;
   const sPrimary = other ? other.primary : primary;
-  const sSecondary = other ? other.secondary : discover(3);
+  const sSecondary = revealEach(other ? other.secondary : discover(3), ghost);
   const fab = other?.fab;
 
   let body: React.ReactNode;
@@ -694,8 +691,8 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
     body = (
       <>
         {/* Leading pane (primary). Its own controls sit at the top of the pane, like Mail's list. */}
-        <div key={nav} className="no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden border-r border-[#E6E9EF] bg-white pb-10" style={{ width: lead }}>
-          <div className="pt-[6px]">{sTop}</div>
+        <div key={nav} ref={leadRef} className="no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden border-r border-[#E6E9EF] bg-white pb-10 pt-[6px]" style={{ width: lead }}>
+          {sTop}
           <div className="flex flex-col gap-8">{sPrimary}</div>
         </div>
         
@@ -722,8 +719,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
           </>
         ) : (
           <>
-            {topBar}
-            <CategoryTabs tab={tab} setTab={changeTab} />
+            {sTop}
             <PackStatus ctx={ctx} />
             <div className="mt-8">
               <MyServices ctx={ctx} />
@@ -741,9 +737,7 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
               </div>
             </div>
             <div className="mt-8 flex flex-col gap-8">
-              <MightLike ctx={ctx} />
-              <Fresh ctx={ctx} />
-              <Claim ctx={ctx} />
+              {revealEach(<><MightLike ctx={ctx} /><Fresh ctx={ctx} /><Claim ctx={ctx} /></>, ghost)}
             </div>
           </>
         )}
@@ -767,6 +761,8 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
         </div>
       );
   }
+
+  body = <ScrollYProvider value={chrome.y}>{body}</ScrollYProvider>;
 
   return (
     <div data-screen className={cn("relative h-full w-full overflow-hidden bg-white", ghost && "pointer-events-none")} {...(ghost ? { inert: "" } : {})}>

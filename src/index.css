@@ -12,3 +12,7 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 
 @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
+
+/* Homepage interaction: category tiles shrink to small icons once the page scrolls (--compact 0 → 1). */
+.ct-scale { transform: translateY(calc(var(--compact, 0) * 14px)) scale(calc(1 - 0.34 * var(--compact, 0))); transform-origin: 50% 0; }
+.ct-label { translate: 0 calc(var(--compact, 0) * -8px); }
