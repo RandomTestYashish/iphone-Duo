@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "build:single": "tsc -b && vite build --mode single",
     "build:demo": "tsc -b && vite build --mode demo",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {
     "clsx": "^2.1.1",
