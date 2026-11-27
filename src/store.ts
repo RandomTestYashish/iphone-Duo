@@ -8,7 +8,8 @@ import type { DetailSpec } from "@/components/Overlays";
 export type Pack = { price: number; days: number; data: string; till: string };
 type State = { tab: string; nav: string; pack: Pack | null; detail: DetailSpec | null; ratio: number };
 
-let state: State = { tab: "All", nav: "Manage", pack: null, detail: null, ratio: 0 };
+const startTab = typeof location !== "undefined" ? new URLSearchParams(location.search).get("tab") : null; // ?tab=Finance (review)
+let state: State = { tab: "All", nav: startTab ?? "Manage", pack: null, detail: null, ratio: 0 };
 const subs = new Set<() => void>();
 
 export const store = {

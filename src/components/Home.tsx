@@ -7,6 +7,7 @@ import { cn } from "@/utils";
 import { Arrow, CARD, ClipTag, SectionTitle, StatusBar, useDragScroll } from "./ui";
 import { Detail, DetailPanel, Drawer, SearchOverlay, Toast, type DetailSpec } from "./Overlays";
 import { store, useStore, type Pack } from "@/store";
+import { askUsScreen, familyScreen, financeScreen, type TabCtx, type TabScreen } from "./Tabs";
 
 /**
  * "Manage Landing" on iPhone Duo, following Apple's HIG "Designing for iPhone Duo":
@@ -562,22 +563,6 @@ function Rail({ nav, setNav, toolbar }: { nav: string; setNav: (n: string) => vo
 
 const MenuIcon = () => <img src={home("nav-menu.svg")} alt="" className="h-[11.42px] w-[17.2px]" />;
 
-function OtherTab({ name, back }: { name: string; back: () => void }) {
-  const icon = NAV.find((n) => n.l === name)!.i;
-  return (
-    <div className="flex min-h-[520px] flex-col items-center justify-center gap-4 px-8 text-center">
-      <span className="flex size-16 items-center justify-center rounded-[20px] bg-[#F0F4F9]">
-        <img src={home(icon)} alt="" className="size-8" />
-      </span>
-      <p className="text-[18px] font-bold text-[#292C31]">{name}</p>
-      <p className="max-w-[280px] text-[14px] leading-5 text-[#696B6F]">This tab isn’t part of the Manage Landing frame.</p>
-      <button onClick={back} className="mt-2 flex h-10 items-center rounded-[12px] bg-black px-5 text-[14px] font-medium text-white">
-        Back to Manage
-      </button>
-    </div>
-  );
-}
-
 /* ---------------- Screen ---------------- */
 
 export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: boolean; ghost?: boolean }) {
@@ -586,7 +571,10 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
   const detail = useStore((s) => s.detail);
   const pack = useStore((s) => s.pack);
   const setTab = (t: string) => store.set({ tab: t });
-  const setNav = (n: string) => store.set({ nav: n });
+  const setNav = (n: string) => {
+    store.setRatio(0);
+    store.set({ nav: n, detail: null });
+  };
   const setDetail = (d: DetailSpec | null) => store.set({ detail: d });
   const setPack = (p: Pack) => store.set({ pack: p });
   const [menu, setMenu] = useState(false);
@@ -668,53 +656,65 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
     </>
   );
 
+  // Finance / Family / Ask Us: each tab gives a top, a primary part and a secondary part.
+  const tabCtx: TabCtx = { open: setDetail, toast, menu: () => setMenu(true) };
+  const other: TabScreen | null = manage ? null : nav === "Finance" ? financeScreen(tabCtx) : nav === "Family" ? familyScreen(tabCtx) : askUsScreen(tabCtx);
+  const sTop = other ? other.top : (
+    <>
+      {topBar}
+      <CategoryTabs tab={tab} setTab={changeTab} />
+    </>
+  );
+  const sPrimary = other ? other.primary : primary;
+  const sSecondary = other ? other.secondary : discover(3);
+  const fab = other?.fab;
+
   let body: React.ReactNode;
   if (mode === "outer") {
     // Closed: compact width, single column, controls on the trailing rail.
     body = (
-      <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden pb-10 pt-[6px]" style={{ right: RAIL }}>
-        {topBar}
-        {manage ? (
+      <>
+        <div key={nav} ref={scroller} onScroll={onScroll} className={cn("no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden pt-[6px]", fab ? "pb-24" : "pb-10")} style={{ right: RAIL }}>
+          {sTop}
           <div className="flex flex-col gap-8">
-            <CategoryTabs tab={tab} setTab={changeTab} />
-            <div className="-mt-8 flex flex-col gap-8">
-              {primary}
-              {discover(3)}
-            </div>
+            {sPrimary}
+            {sSecondary}
           </div>
-        ) : (
-          <OtherTab name={nav} back={() => setNav("Manage")} />
-        )}
-      </div>
+        </div>
+        {fab && <div className="absolute bottom-6 z-20 flex justify-center" style={{ left: 0, right: RAIL }}>{fab}</div>}
+      </>
     );
   } else if (inner) {
     body = (
       <>
         {/* Leading pane (primary). Its own controls sit at the top of the pane, like Mail's list. */}
-        <div className="no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden border-r border-[#E6E9EF] bg-white pb-10" style={{ width: lead }}>
-          <div className="pt-[6px]">{topBar}</div>
-          {manage ? (
-            <div className="flex flex-col gap-8">
-              <CategoryTabs tab={tab} setTab={changeTab} />
-              <div className="-mt-8 flex flex-col gap-8">{primary}</div>
-            </div>
-          ) : (
-            <OtherTab name={nav} back={() => setNav("Manage")} />
-          )}
+        <div key={nav} className={cn("no-scrollbar absolute inset-y-0 left-0 overflow-y-auto overflow-x-hidden border-r border-[#E6E9EF] bg-white", fab ? "pb-24" : "pb-10")} style={{ width: lead }}>
+          <div className="pt-[6px]">{sTop}</div>
+          <div className="flex flex-col gap-8">{sPrimary}</div>
         </div>
-        {/* Trailing pane (secondary): Discover, or the detail of what was tapped. */}
-        <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 overflow-y-auto overflow-x-hidden bg-white pb-10 pt-[30px]" style={{ left: trailX, width: trailW }}>
-          <div className="flex flex-col gap-8">{discover(3)}</div>
+        {fab && <div className="absolute bottom-6 left-0 z-20 flex justify-center" style={{ width: lead }}>{fab}</div>}
+        {/* Trailing pane (secondary), or the detail of what was tapped. */}
+        <div key={nav} ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-y-0 overflow-y-auto overflow-x-hidden bg-white pb-10 pt-[30px]" style={{ left: trailX, width: trailW }}>
+          <div className="flex flex-col gap-8">{sSecondary}</div>
         </div>
       </>
     );
   } else {
-    // Inner display in portrait: horizontal bars, two even columns.
+    // Inner display in portrait: horizontal bars.
     body = (
-      <div ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-0 overflow-y-auto overflow-x-hidden pb-[150px] pt-[44px]">
-        {topBar}
-        {manage ? (
+      <>
+      <div key={nav} ref={scroller} onScroll={onScroll} className="no-scrollbar absolute inset-0 overflow-y-auto overflow-x-hidden pb-[150px] pt-[44px]">
+        {other ? (
           <>
+            {sTop}
+            <div className="flex flex-col gap-8">
+              {sPrimary}
+              {sSecondary}
+            </div>
+          </>
+        ) : (
+          <>
+            {topBar}
             <CategoryTabs tab={tab} setTab={changeTab} />
             <PackStatus ctx={ctx} />
             <div className="mt-8">
@@ -738,10 +738,10 @@ export function Home({ mode, showRegions, ghost }: { mode: Mode; showRegions: bo
               <Claim ctx={ctx} />
             </div>
           </>
-        ) : (
-          <OtherTab name={nav} back={() => setNav("Manage")} />
         )}
       </div>
+      {fab && !navHidden && <div className="absolute inset-x-0 bottom-[116px] z-20 flex justify-center">{fab}</div>}
+      </>
     );
   }
 
